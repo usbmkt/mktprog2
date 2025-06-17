@@ -1,14 +1,17 @@
+
 // client/src/components/StudioEditorComponent.tsx
 import React, { useEffect, useRef, useState } from 'react';
 import { LandingPage, InsertLandingPage } from '@shared/schema';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { Button } from '@/components/ui/button'; // Import Button
+import { Button } from '@/components/ui/button'; 
 
-// ✅ CORREÇÃO: Importações estáticas para garantir que o Vite empacote o código corretamente.
+// Standard GrapesJS Studio SDK import
 import StudioSDK from '@grapesjs/studio-sdk';
-import * as studioPlugins from '@grapesjs/studio-sdk-plugins';
+// Import plugins as default export if named exports are not available
+import StudioSDKPlugins from '@grapesjs/studio-sdk-plugins'; 
+
 import '@grapesjs/studio-sdk/dist/style.css';
 
 interface StudioEditorComponentProps {
@@ -20,7 +23,7 @@ export const StudioEditorComponent = ({ initialData, onBack }: StudioEditorCompo
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const editorRef = useRef<HTMLDivElement>(null);
-  const studioInstanceRef = useRef<any>(null);
+  const studioInstanceRef = useRef<any>(null); // Consider using a more specific type if available from SDK
   const [isInitializing, setIsInitializing] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
 
@@ -35,19 +38,15 @@ export const StudioEditorComponent = ({ initialData, onBack }: StudioEditorCompo
       
       const payload: Partial<InsertLandingPage> = { 
         name, 
-        slug, 
+        ...(isEditing ? {} : { slug }),
         grapesJsData: data.grapesJsData, 
         status: initialData?.status || 'draft',
+        ...(initialData?.generationOptions && { generationOptions: initialData.generationOptions }),
       };
       
-      // No modo de edição, não passamos o slug para evitar conflitos. O slug não deve ser alterado.
-      if(isEditing) {
-        delete (payload as Partial<InsertLandingPage>).slug
-      }
-
       const response = await apiRequest(method, endpoint, payload);
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ error: 'Falha ao salvar a landing page.' }));
         throw new Error(errorData.error || 'Falha ao salvar a landing page.');
       }
       return response.json();
@@ -68,23 +67,28 @@ export const StudioEditorComponent = ({ initialData, onBack }: StudioEditorCompo
     let studio: any;
 
     try {
-      const plugins = [
-        studioPlugins.pluginForms,
-        studioPlugins.pluginCustomCode,
-        studioPlugins.pluginExport,
-        studioPlugins.pluginTooltip,
-        studioPlugins.pluginAvatars
+      // Assuming plugins are properties on the default export from StudioSDKPlugins
+      // Use a type assertion if StudioSDKPlugins is 'any' or if properties are not strictly typed
+      const sdkPlugins: any = StudioSDKPlugins; 
+
+      const grapesPlugins = [
+        sdkPlugins?.pluginForms, // Example: StudioSDKPlugins.pluginForms
+        sdkPlugins?.pluginCustomCode,
+        sdkPlugins?.pluginExport,
+        sdkPlugins?.pluginTooltip,
+        sdkPlugins?.pluginAvatars
       ].filter(plugin => typeof plugin === 'function');
+
 
       const config: any = {
         container: editorRef.current,
-        plugins,
+        plugins: grapesPlugins, 
         project: initialData?.grapesJsData && Object.keys(initialData.grapesJsData).length > 0 ? {
           id: String(initialData.id),
           main: initialData.grapesJsData,
         } : {
           name: initialData?.name || 'Nova Landing Page',
-          template: '@grapesjs/template-blank',
+          template: '@grapesjs/template-blank', // Example template
         },
         onSave: (data: any) => saveLpMutation.mutate({ grapesJsData: data.project.main }),
         getBackLink: () => {
@@ -95,10 +99,11 @@ export const StudioEditorComponent = ({ initialData, onBack }: StudioEditorCompo
           return backLink;
         },
         autoSave: true,
-        autosaveInterval: 300000,
+        autosaveInterval: 300000, // 5 minutes
       };
       
-      studio = new StudioSDK(config);
+      // Correctly instantiate StudioSDK
+      studio = new (StudioSDK as any)(config); // Using 'as any' if types are problematic
       studioInstanceRef.current = studio;
       setInitError(null);
     } catch (error) {
@@ -119,7 +124,7 @@ export const StudioEditorComponent = ({ initialData, onBack }: StudioEditorCompo
         studioInstanceRef.current = null;
       }
     };
-  }, [initialData, onBack, saveLpMutation, toast]);
+  }, [initialData, onBack, toast, saveLpMutation]); 
 
 
   if (isInitializing) {

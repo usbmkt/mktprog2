@@ -34,7 +34,7 @@ const DetailItem: React.FC<{ label: string; value?: string | number | null; icon
       {label}
     </dt>
     <dd className="mt-1 text-sm text-foreground sm:mt-0 sm:col-span-2">
-      {children || value || <span className="italic">Não informado</span>}
+      {children || (value !== null && value !== undefined && value !== '' ? value : <span className="italic">Não informado</span>)}
     </dd>
   </div>
 );
@@ -49,9 +49,12 @@ export default function CampaignDetailsModal({ campaign, isOpen, onClose }: Camp
     });
   };
 
-  const formatCurrency = (value?: string | number | null) => {
-    if (value === null || value === undefined || value === "") return "N/A";
-    return `R$ ${parseFloat(String(value)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatCurrency = (value?: string | number | null | undefined) => {
+    // Check for undefined explicitly as well as null or empty string
+    if (value === null || value === undefined || String(value).trim() === "") return "N/A";
+    const numValue = parseFloat(String(value));
+    if (isNaN(numValue)) return "N/A"; // Handle cases where parsing results in NaN
+    return `R$ ${numValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
   
   const getPlatformBadgeConfig = (platform: string) => {

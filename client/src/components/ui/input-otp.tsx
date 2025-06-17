@@ -1,5 +1,6 @@
+
 import * as React from "react"
-import { OTPInput, OTPInputContext } from "input-otp"
+import { OTPInput, OTPInputContext, OTPInputContextType } from "input-otp" // Import OTPInputContextType
 import { Dot } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -32,8 +33,13 @@ const InputOTPSlot = React.forwardRef<
   React.ElementRef<"div">,
   React.ComponentPropsWithoutRef<"div"> & { index: number }
 >(({ index, className, ...props }, ref) => {
-  const inputOTPContext = React.useContext(OTPInputContext)
-  const { char, hasFakeCaret, isActive } = (inputOTPContext as any).slots[index]
+  const inputOTPContext = React.useContext(OTPInputContext) as OTPInputContextType; // Added type assertion
+  // Check if slots is defined and if the index is valid
+  const slot = inputOTPContext.slots && inputOTPContext.slots[index];
+  const char = slot?.char;
+  const hasFakeCaret = slot?.hasFakeCaret;
+  const isActive = slot?.isActive;
+
 
   return (
     <div

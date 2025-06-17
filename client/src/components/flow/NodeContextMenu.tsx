@@ -1,3 +1,4 @@
+
 // client/src/components/flow/NodeContextMenu.tsx
 import React from 'react';
 import {
@@ -7,20 +8,26 @@ import {
   ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import { Copy, Trash2 } from 'lucide-react';
-import { NodeContextMenuProps } from '@/types/zapTypes';
-import { cn } from "@/lib/utils";
-import { popoverContentStyle } from './utils'; // Import popoverContentStyle
+import { NodeContextMenuProps as FlowNodeContextMenuPropsImport } from '@/types/zapTypes'; 
+import { cn } from '@/lib/utils';
+import { popoverContentStyle } from './utils'; 
 
-interface FullNodeContextMenuProps extends NodeContextMenuProps {
+
+export interface FullNodeContextMenuProps { // Removed FlowNodeContextMenuPropsImport extension
+  id: string;
+  top: number;
+  left: number;
+  nodeType?: string; // Made optional or ensure it's always passed
   onClose: () => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
 }
 
 const NodeContextMenu: React.FC<FullNodeContextMenuProps> = ({
-  id, // id, top, left are part of NodeContextMenuProps which FullNodeContextMenuProps extends
-  top,
-  left,
+  id, 
+  top, 
+  left, 
+  // nodeType is also available from FlowNodeContextMenuPropsImport if needed
   onClose,
   onDelete,
   onDuplicate,
@@ -29,7 +36,7 @@ const NodeContextMenu: React.FC<FullNodeContextMenuProps> = ({
     <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 999 }} onMouseDown={onClose}>
         <ContextMenu open={true} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
             <ContextMenuContent
-                className={cn("w-48 neu-card", popoverContentStyle)} // Use imported popoverContentStyle
+                className={cn("w-48 neu-card", popoverContentStyle)}
                 style={{ position: 'absolute', top: `${top}px`, left: `${left}px` }}
                 onEscapeKeyDown={onClose}
             >

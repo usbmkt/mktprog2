@@ -1,5 +1,6 @@
+
 // client/src/pages/funnel.tsx
-import React, { useState, useMemo, useEffect, ChangeEvent } from 'react'; // Added React import
+import { useState, useMemo, useEffect, ChangeEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -25,6 +26,7 @@ interface FunnelWithStages extends FunnelType {
   totalVisitors?: number;
   totalConversions?: number;
   overallConversionRate?: number;
+  campaignId?: number | null; // Ensure campaignId is part of the interface
 }
 
 type FunnelFormData = Pick<InsertFunnel, "name" | "description" | "campaignId">;

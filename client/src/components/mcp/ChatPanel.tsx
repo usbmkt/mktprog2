@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useMCPStore, sendMessageToMCP, ChatSession } from '@/lib/mcpStore';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { ptBR } from 'date-fns/locale/pt-BR'; // Corrected import
 import { apiRequest } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import ubiePng from '../../img/ubie.png';
@@ -315,7 +316,7 @@ export const ChatPanel: React.FC = () => {
                 )}
                  {msg.sender !== 'system' && (
                     <span className={cn("text-xs mt-1", msg.sender === 'user' ? 'text-primary-foreground/70 self-end' : 'text-muted-foreground/70 self-start')}>
-                      {format(msg.timestamp, 'HH:mm', { locale: ptBR })}
+                      {format(new Date(msg.timestamp), 'HH:mm', { locale: ptBR })}
                     </span>
                   )}
               </div>

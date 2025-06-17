@@ -1,3 +1,4 @@
+
 // client/src/pages/alerts.tsx
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -5,21 +6,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
+// import { Switch } from '@/components/ui/switch'; // Switch was unused
+// import { Separator } from '@/components/ui/separator'; // Separator was unused
 import { AlertTriangle, Bell, CheckCircle, Clock, TrendingDown, DollarSign, Users, Settings, Loader2 } from 'lucide-react';
-import { apiRequest } from '@/lib/api'; // Ajustado para usar o apiRequest geral
-import { useToast } from "@/hooks/use-toast"; // Adicionado useToast
+import { apiRequest } from '@/lib/api'; 
+import { useToast } from "@/hooks/use-toast"; 
 
 interface Alert {
   id: number;
   type: 'budget' | 'performance' | 'audience' | 'system';
   title: string;
   message: string;
-  severity: 'low' | 'medium' | 'high' | 'critical'; // Adicionando severity se for usada do backend
+  severity?: 'low' | 'medium' | 'high' | 'critical'; // Made severity optional as it might not come from API
   isRead: boolean;
   campaignId?: number;
-  campaignName?: string; // Este campo pode não vir da API /api/alerts diretamente.
+  campaignName?: string; 
   createdAt: string;
   data?: any;
 }
@@ -30,9 +31,9 @@ export default function AlertsPage() {
   const { toast } = useToast();
 
   const { data: alerts = [], isLoading, error: alertsError, refetch } = useQuery<Alert[]>({
-    queryKey: ['alerts'], // Modificado queryKey para algo mais simples
+    queryKey: ['alerts'], 
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/alerts'); // Busca todos os alertas
+      const response = await apiRequest('GET', '/api/alerts'); 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Falha ao carregar alertas.' }));
         throw new Error(errorData.message || 'Falha ao carregar alertas.');
@@ -43,8 +44,9 @@ export default function AlertsPage() {
 
   const markAsReadMutation = useMutation({
     mutationFn: async (alertId: number) => {
-      // Corrigido para PUT e endpoint correto
-      const response = await apiRequest('PUT', `/api/alerts/${alertId}/read`, {});
+      // Backend needs to support PUT /api/alerts/:id/read or similar
+      // For now, assuming a PATCH request to /api/alerts/:id with isRead: true
+      const response = await apiRequest('PATCH', `/api/alerts/${alertId}`, { isRead: true });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Falha ao marcar como lido.' }));
         throw new Error(errorData.message || 'Falha ao marcar como lido.');
@@ -59,12 +61,12 @@ export default function AlertsPage() {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     }
   });
-
-  // ATENÇÃO: O endpoint /api/alerts/read-all não está definido no server/routes.ts.
-  // Esta funcionalidade não funcionará completamente sem a implementação no backend.
+  
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('PATCH', '/api/alerts/read-all', {}); // Mantendo PATCH como no código original, mas requer endpoint
+      // This endpoint needs to be implemented in the backend
+      // For example, PATCH /api/alerts/read-all
+      const response = await apiRequest('PATCH', '/api/alerts/read-all', {}); 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Falha ao marcar todos como lidos.' }));
         throw new Error(errorData.message || 'Falha ao marcar todos como lidos.');
@@ -76,9 +78,12 @@ export default function AlertsPage() {
       toast({ title: "Alertas atualizados", description: "Todos os alertas foram marcados como lidos." });
     },
     onError: (error: Error) => {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      // If the endpoint doesn't exist, this will likely be the error
+      toast({ title: "Erro", description: "Funcionalidade 'Marcar Todos Como Lido' ainda não implementada no servidor.", variant: "destructive" });
+      console.error("Mark all as read error:", error);
     }
   });
+
 
   const getAlertIcon = (type: string) => {
     switch (type) {
@@ -90,7 +95,6 @@ export default function AlertsPage() {
     }
   };
 
-  // Adicionando uma função de fallback para severity se não vier do backend
   const getSeverityFromType = (type: Alert['type']): Alert['severity'] => {
     switch(type) {
       case 'budget': return 'high';
@@ -141,9 +145,8 @@ export default function AlertsPage() {
     }
   };
 
-  const activeAlerts = alerts.filter(alert => !alert.isRead);
-  // A API /api/alerts não retorna o campo 'severity', então vamos usar o tipo para simular uma severidade
-  const criticalAlerts = alerts.filter(alert => !alert.isRead && getSeverityFromType(alert.type) === 'critical');
+  const activeAlerts = alerts.filter(alertItem => !alertItem.isRead);
+  const criticalAlerts = alerts.filter(alertItem => !alertItem.isRead && getSeverityFromType(alertItem.type) === 'critical');
 
   if (isLoading) {
     return <div className="p-8 text-center"><Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" /> Carregando alertas...</div>;
@@ -178,10 +181,6 @@ export default function AlertsPage() {
             {markAllAsReadMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-2" /> }
             Marcar Tudo Lido
           </Button>
-          {/* <Button className="neu-button">
-            <Settings className="w-4 h-4 mr-2" />
-            Configurar
-          </Button> */}
         </div>
       </div>
 
@@ -248,7 +247,6 @@ export default function AlertsPage() {
           <TabsTrigger value="all" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md rounded-md">
             Todos ({alerts.length})
           </TabsTrigger>
-          {/* <TabsTrigger value="settings">Configurações</TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="active" className="space-y-4">
@@ -264,40 +262,39 @@ export default function AlertsPage() {
             </Card>
           ) : (
             <div className="space-y-4">
-              {activeAlerts.map((alert) => (
-                <Card key={alert.id} className={`neu-card border-l-4 ${getSeverityColor(alert.severity, alert.type).replace('bg-', 'border-l-')}`}>
+              {activeAlerts.map((alertItem) => (
+                <Card key={alertItem.id} className={`neu-card border-l-4 ${getSeverityColor(alertItem.severity, alertItem.type).replace('bg-', 'border-l-')}`}>
                   <CardContent className="p-4 md:p-6">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-start space-x-3 md:space-x-4">
-                        <div className={`w-2 h-2 rounded-full mt-1.5 ${getSeverityColor(alert.severity, alert.type)} flex-shrink-0`}></div>
+                        <div className={`w-2 h-2 rounded-full mt-1.5 ${getSeverityColor(alertItem.severity, alertItem.type)} flex-shrink-0`}></div>
                         <div className="flex-1">
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1 md:mb-2">
-                            {getAlertIcon(alert.type)}
-                            <h3 className="font-semibold text-base md:text-lg">{alert.title}</h3>
-                            {getSeverityBadge(alert.severity, alert.type)}
+                            {getAlertIcon(alertItem.type)}
+                            <h3 className="font-semibold text-base md:text-lg">{alertItem.title}</h3>
+                            {getSeverityBadge(alertItem.severity, alertItem.type)}
                           </div>
                           <p className="text-sm text-muted-foreground mb-2 md:mb-3">
-                            {alert.message}
+                            {alertItem.message}
                           </p>
-                          {alert.campaignName && ( // O campo campaignName não vem da API /api/alerts, precisa ser adicionado no backend ou buscado separadamente
+                          {alertItem.campaignName && ( 
                             <p className="text-xs text-primary mb-2">
-                              Campanha: {alert.campaignName} 
+                              Campanha: {alertItem.campaignName} 
                             </p>
                           )}
-                          {/* Mocked data display (remover/ajustar para dados reais da API) */}
-                          {alert.data && (
+                          {alertItem.data && (
                             <div className="bg-muted/50 rounded-lg p-2.5 mb-2 md:mb-3 text-xs">
-                              {alert.type === 'budget' && alert.data.budgetUsed && (
-                                <p>Orçamento usado: {alert.data.budgetUsed}% | Restante: R$ {alert.data.remaining}</p>
+                              {alertItem.type === 'budget' && alertItem.data.budgetUsed && (
+                                <p>Orçamento usado: {alertItem.data.budgetUsed}% | Restante: R$ {alertItem.data.remaining}</p>
                               )}
-                              {alert.type === 'performance' && alert.data.currentCTR && (
-                                <p>CTR: {alert.data.currentCTR}% (Anterior: {alert.data.previousCTR}%)</p>
+                              {alertItem.type === 'performance' && alertItem.data.currentCTR && (
+                                <p>CTR: {alertItem.data.currentCTR}% (Anterior: {alertItem.data.previousCTR}%)</p>
                               )}
                             </div>
                           )}
                           <div className="flex items-center text-xs text-muted-foreground">
                             <Clock className="w-3 h-3 mr-1" />
-                            {formatTime(alert.createdAt)}
+                            {formatTime(alertItem.createdAt)}
                           </div>
                         </div>
                       </div>
@@ -305,15 +302,15 @@ export default function AlertsPage() {
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={() => markAsReadMutation.mutate(alert.id)}
-                          disabled={markAsReadMutation.isPending && markAsReadMutation.variables === alert.id}
+                          onClick={() => markAsReadMutation.mutate(alertItem.id)}
+                          disabled={markAsReadMutation.isPending && markAsReadMutation.variables === alertItem.id}
                           className="neu-button text-xs"
                         >
-                          { (markAsReadMutation.isPending && markAsReadMutation.variables === alert.id) && <Loader2 className="w-3 h-3 mr-1.5 animate-spin"/>}
+                          { (markAsReadMutation.isPending && markAsReadMutation.variables === alertItem.id) && <Loader2 className="w-3 h-3 mr-1.5 animate-spin"/>}
                           Marcar Lido
                         </Button>
-                        {alert.campaignId && ( // Exemplo de ação, linkar para a campanha
-                          <Button size="sm" onClick={() => alert(`Ir para campanha ID: ${alert.campaignId}`)} className="neu-button text-xs">
+                        {alertItem.campaignId && ( 
+                          <Button size="sm" onClick={() => window.alert(`Ir para campanha ID: ${alertItem.campaignId}`)} className="neu-button text-xs">
                             Ver Campanha
                           </Button>
                         )}
@@ -339,37 +336,37 @@ export default function AlertsPage() {
             </Card>
           ) : (
             <div className="space-y-4">
-            {alerts.map((alert) => (
-              <Card key={alert.id} className={`neu-card ${alert.isRead ? 'opacity-70 bg-card/70' : ''}`}>
+            {alerts.map((alertItem) => (
+              <Card key={alertItem.id} className={`neu-card ${alertItem.isRead ? 'opacity-70 bg-card/70' : ''}`}>
                 <CardContent className="p-4 md:p-6">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start space-x-3 md:space-x-4">
-                      <div className={`w-2 h-2 rounded-full mt-1.5 ${getSeverityColor(alert.severity, alert.type)} flex-shrink-0`}></div>
+                      <div className={`w-2 h-2 rounded-full mt-1.5 ${getSeverityColor(alertItem.severity, alertItem.type)} flex-shrink-0`}></div>
                       <div className="flex-1">
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1 md:mb-2">
-                          {getAlertIcon(alert.type)}
-                          <h3 className="font-semibold text-base md:text-lg">{alert.title}</h3>
-                          {getSeverityBadge(alert.severity, alert.type)}
-                          {alert.isRead && <Badge variant="outline" className="text-xs">Lido</Badge>}
+                          {getAlertIcon(alertItem.type)}
+                          <h3 className="font-semibold text-base md:text-lg">{alertItem.title}</h3>
+                          {getSeverityBadge(alertItem.severity, alertItem.type)}
+                          {alertItem.isRead && <Badge variant="outline" className="text-xs">Lido</Badge>}
                         </div>
                         <p className="text-sm text-muted-foreground mb-2 md:mb-3">
-                          {alert.message}
+                          {alertItem.message}
                         </p>
                          <div className="flex items-center text-xs text-muted-foreground">
                           <Clock className="w-3 h-3 mr-1" />
-                          {formatTime(alert.createdAt)}
+                          {formatTime(alertItem.createdAt)}
                         </div>
                       </div>
                     </div>
-                    {!alert.isRead && (
+                    {!alertItem.isRead && (
                          <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={() => markAsReadMutation.mutate(alert.id)}
-                          disabled={markAsReadMutation.isPending && markAsReadMutation.variables === alert.id}
+                          onClick={() => markAsReadMutation.mutate(alertItem.id)}
+                          disabled={markAsReadMutation.isPending && markAsReadMutation.variables === alertItem.id}
                           className="neu-button text-xs flex-shrink-0"
                         >
-                           { (markAsReadMutation.isPending && markAsReadMutation.variables === alert.id) && <Loader2 className="w-3 h-3 mr-1.5 animate-spin"/>}
+                           { (markAsReadMutation.isPending && markAsReadMutation.variables === alertItem.id) && <Loader2 className="w-3 h-3 mr-1.5 animate-spin"/>}
                           Marcar Lido
                         </Button>
                     )}
@@ -380,20 +377,6 @@ export default function AlertsPage() {
             </div>
           )}
         </TabsContent>
-
-        {/* <TabsContent value="settings" className="space-y-4">
-          <Card className="neu-card">
-            <CardHeader>
-              <CardTitle>Configurações de Notificações</CardTitle>
-              <CardDescription>
-                Personalize quando e como receber alertas (funcionalidade futura)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-               Conteúdo das configurações de alertas aqui
-            </CardContent>
-          </Card>
-        </TabsContent> */}
       </Tabs>
     </div>
   );

@@ -1,3 +1,4 @@
+
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -15,7 +16,7 @@ import { apiRequest } from '@/lib/api';
 import { CampaignTask, InsertCampaignTask, User, taskStatusEnum } from '@shared/schema';
 import { Loader2, CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { ptBR } from 'date-fns/locale/pt-BR'; // Corrected import
 import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
@@ -35,9 +36,11 @@ interface TaskFormProps {
   phaseId: number;
   task?: CampaignTask;
   onClose: () => void;
+  // Add onSuccess prop if specific actions are needed after successful mutation
+  onSuccess?: (data: CampaignTask) => void; 
 }
 
-export default function TaskForm({ campaignId, phaseId, task, onClose }: TaskFormProps) {
+export default function TaskForm({ campaignId, phaseId, task, onClose, onSuccess }: TaskFormProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -52,26 +55,25 @@ export default function TaskForm({ campaignId, phaseId, task, onClose }: TaskFor
       name: task?.name || '',
       description: task?.description || '',
       status: task?.status || 'pending',
-      startDate: task?.startDate ? new Date(task.startDate) : undefined,
-      endDate: task?.endDate ? new Date(task.endDate) : undefined,
+      startDate: task?.startDate ? new Date(String(task.startDate)) : undefined,
+      endDate: task?.endDate ? new Date(String(task.endDate)) : undefined,
       assigneeId: task?.assigneeId || null,
       phaseId: phaseId,
     },
   });
 
-  const mutation = useMutation({
-    mutationFn: (data: InsertCampaignTask) => {
+  const mutation = useMutation<CampaignTask, Error, InsertCampaignTask>({
+    mutationFn: async (data: InsertCampaignTask) => {
       const url = task ? `/api/tasks/${task.id}` : `/api/campaigns/${campaignId}/tasks`;
       const method = task ? 'PUT' : 'POST';
-      return apiRequest(method, url, data);
+      const response = await apiRequest(method, url, data);
+      // apiRequest already throws on !response.ok
+      return response.json();
     },
-    onSuccess: async (response) => {
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Falha ao ${task ? 'atualizar' : 'criar'} tarefa`);
-      }
+    onSuccess: (data) => {
       toast({ title: `Tarefa ${task ? 'atualizada' : 'criada'} com sucesso!` });
       queryClient.invalidateQueries({ queryKey: ['campaignSchedule', String(campaignId)] });
+      if (onSuccess) onSuccess(data);
       onClose();
     },
     onError: (error: Error) => {
@@ -84,7 +86,7 @@ export default function TaskForm({ campaignId, phaseId, task, onClose }: TaskFor
   }
 
   return (
-    <Dialog open onOpenChange={onClose}>
+    <Dialog open onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{task ? 'Editar Tarefa' : 'Nova Tarefa'}</DialogTitle>
@@ -131,7 +133,7 @@ export default function TaskForm({ campaignId, phaseId, task, onClose }: TaskFor
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose} disabled={mutation.isPending}>Cancelar</Button>
-              <Button type="submit" disabled={mutation.isPending}>
+              <Button type="submit" disabled={mutation.isPending || !form.formState.isValid}>
                 {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {task ? 'Salvar Alterações' : 'Criar Tarefa'}
               </Button>

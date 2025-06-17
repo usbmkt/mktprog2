@@ -1,3 +1,4 @@
+
 // client/src/pages/landingpages.tsx
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -19,15 +20,22 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label'; // Added missing import
 
 // Schema atualizado com todas as opções avançadas
 const generateLpFormSchema = z.object({
   name: z.string().min(3, "O nome deve ter pelo menos 3 caracteres."),
-  campaignId: z.preprocess((val) => (val === "NONE" || val === "" ? null : Number(val)), z.number().nullable().optional()),
+  campaignId: z.preprocess(
+    (val) => {
+      if (val === "NONE" || val === "" || val === null || val === undefined) return null;
+      const num = parseInt(String(val), 10);
+      return isNaN(num) ? undefined : num; // Return undefined if NaN, so optional() handles it, or null if it's explicitly "NONE" etc.
+    }, 
+    z.number().int().positive().nullable().optional()
+  ),
   reference: z.string().url("Por favor, insira uma URL válida.").optional().or(z.literal('')),
   prompt: z.string().min(20, "O prompt deve ter pelo menos 20 caracteres."),
   
-  // Opções avançadas
   style: z.enum(['modern', 'minimal', 'bold', 'elegant', 'tech', 'startup']).default('modern'),
   colorScheme: z.enum(['dark', 'light', 'gradient', 'neon', 'earth', 'ocean']).default('dark'),
   industry: z.string().optional(),
@@ -45,7 +53,7 @@ type GenerateLpFormData = z.infer<typeof generateLpFormSchema>;
 
 interface LandingPageOptions {
   style?: 'modern' | 'minimal' | 'bold' | 'elegant' | 'tech' | 'startup';
-  colorScheme?: 'dark' | 'light' | 'gradient', 'neon', 'earth', 'ocean';
+  colorScheme?: 'dark' | 'light' | 'gradient' | 'neon' | 'earth' | 'ocean';
   industry?: string;
   targetAudience?: string;
   primaryCTA?: string;
@@ -99,7 +107,6 @@ export default function LandingPages() {
     },
   });
 
-  // Mutação para preview simples
   const previewMutation = useMutation({
     mutationFn: async (data: { prompt: string; reference?: string; options?: LandingPageOptions }) => {
       const response = await apiRequest('POST', '/api/landingpages/preview-advanced', data);
@@ -123,10 +130,8 @@ export default function LandingPages() {
     },
   });
 
-  // Mutação para múltiplas variações
   const variationsMutation = useMutation({
     mutationFn: async (data: { prompt: string; reference?: string; options?: LandingPageOptions; count?: number }) => {
-      // ✅ ROTA CORRIGIDA: Chamando a rota correta que não precisa de ID.
       const response = await apiRequest('POST', '/api/landingpages/generate-variations', data);
       return response.json();
     },
@@ -148,9 +153,7 @@ export default function LandingPages() {
     },
   });
 
-  // Mutação para salvar e editar
   const saveAndEditMutation = useMutation({
-    // ✅ DADOS CORRIGIDOS: A tipagem agora inclui as `generationOptions`
     mutationFn: (data: { name: string; campaignId: number | null; grapesJsData: { html: string; css: string }; generationOptions?: LandingPageOptions }) =>
       apiRequest('POST', '/api/landingpages', data).then(res => res.json()),
     onSuccess: (savedLp: LpType) => {
@@ -171,7 +174,6 @@ export default function LandingPages() {
     },
   });
   
-  // Mutação para atualizar página existente
   const updateLpMutation = useMutation({
     mutationFn: async (data: { id: number, grapesJsData: any }) => {
       return apiRequest('PUT', `/api/landingpages/${data.id}`, { grapesJsData: data.grapesJsData });
@@ -192,10 +194,8 @@ export default function LandingPages() {
     }
   });
 
-  // Mutação para otimizar página existente
   const optimizeMutation = useMutation({
     mutationFn: async (data: { html: string; goals: string[] }) => {
-      // ✅ ROTA CORRIGIDA: Chamando a rota correta que não precisa de ID.
       const response = await apiRequest('POST', '/api/landingpages/optimize', data);
       return response.json();
     },
@@ -284,7 +284,6 @@ export default function LandingPages() {
     
     const formData = form.getValues();
     
-    // ✅ CORREÇÃO: Montando o objeto `generationOptions` a partir do formulário
     const generationOptions: LandingPageOptions = {
       style: formData.style,
       colorScheme: formData.colorScheme,
@@ -302,8 +301,8 @@ export default function LandingPages() {
     saveAndEditMutation.mutate({
       name: formData.name,
       campaignId: formData.campaignId || null,
-      grapesJsData: { html: currentHtml, css: '' }, // O CSS é extraído no editor
-      generationOptions: generationOptions, // Enviando as opções para o backend
+      grapesJsData: { html: currentHtml, css: '' }, 
+      generationOptions: generationOptions, 
     });
   };
 
@@ -693,7 +692,7 @@ export default function LandingPages() {
                                 </FormItem>
                               )} 
                             />
-
+                            
                             <FormField 
                               control={form.control} 
                               name="includeFAQ" 
@@ -714,261 +713,112 @@ export default function LandingPages() {
                       </TabsContent>
                     </Tabs>
 
-                    <Separator />
-
-                    <div className="flex flex-col gap-3">
-                      <Button 
-                        type="submit" 
-                        className="w-full" 
-                        disabled={isGenerating}
-                        size="lg"
-                      >
-                        {isGenerating ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
-                            Gerando sua página...
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="mr-2 h-4 w-4"/>
-                            Gerar Landing Page
-                          </>
-                        )}
-                      </Button>
-
-                      <Button 
-                        type="button"
-                        variant="outline"
-                        onClick={onGenerateVariations}
-                        disabled={isGenerating || !form.getValues().prompt}
-                        className="w-full"
-                      >
-                        {variationsMutation.isPending ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
-                            Criando variações...
-                          </>
-                        ) : (
-                          <>
-                            <Layers className="mr-2 h-4 w-4"/>
-                            Gerar 3 Variações
-                          </>
-                        )}
-                      </Button>
-                    </div>
+                    <Button type="submit" className="w-full" disabled={isGenerating}>
+                      {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                      Gerar Landing Page
+                    </Button>
                   </form>
                 </Form>
               </CardContent>
             </Card>
-          </div>
 
-          {/* Preview */}
-          <div className="space-y-6">
+            {/* Páginas Salvas */}
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Eye className="h-5 w-5" />
-                    Preview da Landing Page
-                    {previewVariations.length > 0 && (
-                      <Badge variant="secondary">
-                        {activePreview + 1} de {previewVariations.length}</Badge>
-                    )}
-                  </CardTitle>
-                  {previewVariations.length > 1 && (
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setActivePreview(Math.max(0, activePreview - 1))}
-                        disabled={activePreview === 0}
-                      >
-                        Anterior
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setActivePreview(Math.min(previewVariations.length - 1, activePreview + 1))}
-                        disabled={activePreview === previewVariations.length - 1}
-                      >
-                        Próxima
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                <CardTitle className="flex items-center gap-2">
+                  <Layers className="text-purple-500" />
+                  Páginas Salvas
+                </CardTitle>
+                <CardDescription>
+                  Gerencie suas landing pages existentes.
+                </CardDescription>
               </CardHeader>
-              
               <CardContent>
-                {getCurrentPreview() ? (
-                  <div className="space-y-4">
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        onClick={handleEditClick}
-                        disabled={saveAndEditMutation.isPending}
-                        size="sm"
-                      >
-                        {saveAndEditMutation.isPending ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <Edit className="mr-2 h-4 w-4" />
-                        )}
-                        Salvar e Editar
-                      </Button>
-                      
-                      <Button
-                        variant="outline"
-                        onClick={handleOpenInNewTab}
-                        size="sm"
-                      >
-                        <ExternalLink className="mr-2 h-4 w-4" />
-                        Abrir em Nova Aba
-                      </Button>
-                      
-                      <Button
-                        variant="outline"
-                        onClick={handleOptimize}
-                        disabled={optimizeMutation.isPending}
-                        size="sm"
-                      >
-                        {optimizeMutation.isPending ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <Zap className="mr-2 h-4 w-4" />
-                        )}
-                        Otimizar
-                      </Button>
-                    </div>
-                    
-                    <div className="border rounded-lg overflow-hidden">
-                      <iframe
-                        srcDoc={getCurrentPreview()}
-                        className="w-full h-[600px] border-0"
-                        title="Landing Page Preview"
-                      />
-                    </div>
+                {landingPages.length > 0 ? (
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {landingPages.map(lp => (
+                      <div key={lp.id} className="flex items-center justify-between p-3 border rounded-md">
+                        <div>
+                          <p className="font-medium">{lp.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {lp.slug} - {lp.status}
+                          </p>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => window.open(`/landingpages/slug/${lp.slug}`, '_blank')}>
+                            <ExternalLink className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleEditExistingLp(lp)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : (
-                  <div className="text-center py-16 text-muted-foreground">
-                    <Bot className="mx-auto h-16 w-16 mb-4 opacity-50" />
-                    <p className="text-lg mb-2">Nenhuma página gerada ainda</p>
-                    <p className="text-sm">Preencha o formulário e clique em "Gerar Landing Page"</p>
-                  </div>
+                  <p className="text-sm text-muted-foreground text-center py-4">Nenhuma landing page salva ainda.</p>
                 )}
               </CardContent>
             </Card>
           </div>
-        </div>
 
-        {/* Seção de Páginas Existentes */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Rocket className="h-5 w-5" />
-              Suas Landing Pages
-            </CardTitle>
-            <CardDescription>
-              Gerencie e edite suas páginas existentes
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {landingPages.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Settings className="mx-auto h-12 w-12 mb-3 opacity-50" />
-                <p>Nenhuma landing page criada ainda</p>
-                <p className="text-sm">Crie sua primeira página usando o gerador acima</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {landingPages.map((lp) => (
-                  <Card key={lp.id} className="hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <CardTitle className="text-base">{lp.name}</CardTitle>
-                          <CardDescription className="text-xs">
-                            Criada em {new Date(lp.createdAt).toLocaleDateString('pt-BR')}
-                          </CardDescription>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditExistingLp(lp)}
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="space-y-3">
-                        {lp.campaignId && (
-                          <Badge variant="outline" className="text-xs">
-                            Campanha: {campaigns.find(c => c.id === lp.campaignId)?.name || 'N/A'}
-                          </Badge>
-                        )}
-                        
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEditExistingLp(lp)}
-                            className="flex-1"
-                          >
-                            <Edit className="mr-2 h-3 w-3" />
-                            Editar
-                          </Button>
-                          
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              const htmlContent = lp.grapesJsData?.html || '';
-                              if (htmlContent) {
-                                const newWindow = window.open();
-                                if (newWindow) {
-                                  newWindow.document.write(htmlContent);
-                                  newWindow.document.close();
-                                }
-                              }
-                            }}
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Footer com Dicas */}
-        <Card className="bg-gradient-to-r from-primary/5 to-purple-500/5 border-primary/20">
-          <CardContent className="pt-6">
-            <div className="text-center space-y-3">
-              <div className="flex items-center justify-center gap-2">
-                <Target className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold">Dicas para Melhores Resultados</h3>
-              </div>
-              <div className="text-sm text-muted-foreground max-w-4xl mx-auto">
-                <p className="mb-2">
-                  • <strong>Seja específico:</strong> Descreva detalhadamente seu produto, público-alvo e objetivos
-                </p>
-                <p className="mb-2">
-                  • <strong>Use referências:</strong> Adicione URLs de páginas que inspiram seu design
-                </p>
-                <p className="mb-2">
-                  • <strong>Teste variações:</strong> Gere múltiplas versões e compare os resultados
-                </p>
-                <p>
-                  • <strong>Otimize sempre:</strong> Use a função de otimização para melhorar conversões
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
+          {/* Área de Preview */}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Eye className="text-green-500" />
+                  Preview da Landing Page
+                </CardTitle>
+                <CardDescription>
+                  Visualize a página gerada pela IA.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="aspect-video bg-muted/50 rounded-md overflow-hidden border relative">
+                  {isGenerating && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm z-10">
+                      <Loader2 className="h-10 w-10 text-primary animate-spin mb-3" />
+                      <p className="text-sm text-primary-foreground">Gerando... isso pode levar um momento.</p>
+                    </div>
+                  )}
+                  {!isGenerating && !previewHtml && !previewVariations.length && (
+                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
+                        <Palette className="h-12 w-12 text-muted-foreground mb-3 opacity-70"/>
+                        <p className="text-sm text-muted-foreground">Preencha o formulário e clique em "Gerar" para ver o preview aqui.</p>
+                     </div>
+                  )}
+                  {(previewHtml || previewVariations.length > 0) && (
+                    <iframe
+                      srcDoc={getCurrentPreview() || ''}
+                      title="Preview da Landing Page"
+                      className="w-full h-full border-0"
+                      sandbox="allow-scripts allow-same-origin"
+                    />
+                  )}
+                </div>
+                {(previewHtml || previewVariations.length > 0) && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button onClick={handleEditClick} disabled={saveAndEditMutation.isPending}>
+                      {saveAndEditMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Code className="mr-2 h-4 w-4" />}
+                      Salvar e Editar no Builder
+                    </Button>
+                    <Button variant="outline" onClick={onGenerateVariations} disabled={variationsMutation.isPending}>
+                      {variationsMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Layers className="mr-2 h-4 w-4" />}
+                      Gerar Variações
+                    </Button>
+                    <Button variant="outline" onClick={handleOptimize} disabled={optimizeMutation.isPending}>
+                      {optimizeMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
+                      Otimizar com IA
+                    </Button>
+                    <Button variant="outline" onClick={handleOpenInNewTab}>
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Abrir em Nova Aba
+                    </Button>
+                  </div>
+                )}
+                {previewVariations.length > 0 && (
+                  <div className="mt-4">
+                    <Label className="text-sm font-medium">Variações:</Label>
+                    <div className="flex gap-2 mt-1">
+                      {previewVariations.map((

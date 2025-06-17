@@ -1,5 +1,7 @@
+
 import React, { useMemo } from 'react';
-import { Layout, Program, Channel, usePlanby } from '@planby/react';
+import { Layout, Program } from '@planby/react'; // Removed Channel as it's not directly used here
+import { usePlanby } from '@planby/react';
 import { FullCampaignData } from '@shared/schema';
 import { parseISO, subDays, addDays, isValid } from 'date-fns';
 import { usePlanbyTheme } from '@/hooks/usePlanbyTheme';
@@ -24,7 +26,7 @@ export function PlanbySchedule({ campaign, containerRef }: PlanbyScheduleProps) 
             .map(phase => ({
                 uuid: String(phase.id),
                 logo: `https://ui-avatars.com/api/?name=${phase.name.substring(0, 1)}&background=18181b&color=a1a1aa&size=48&font-size=0.5&bold=true`,
-                position: { top: 0 },
+                position: { top: 0 }, // Default position, can be adjusted if needed by Planby
                 title: phase.name,
             }));
     }, [campaign.phases]);
@@ -37,22 +39,22 @@ export function PlanbySchedule({ campaign, containerRef }: PlanbyScheduleProps) 
                     description: task.description || 'Sem descrição detalhada.',
                     id: String(task.id),
                     image: getAvatarUrl(task.assignee?.username),
-                    since: task.startDate && isValid(parseISO(task.startDate)) ? parseISO(task.startDate).toISOString() : new Date().toISOString(),
-                    till: task.endDate && isValid(parseISO(task.endDate)) ? parseISO(task.endDate).toISOString() : addDays(new Date(), 1).toISOString(),
+                    since: task.startDate && isValid(parseISO(String(task.startDate))) ? parseISO(String(task.startDate)).toISOString() : new Date().toISOString(),
+                    till: task.endDate && isValid(parseISO(String(task.endDate))) ? parseISO(String(task.endDate)).toISOString() : addDays(new Date(), 1).toISOString(),
                     title: task.name,
-                    disabled: !task.startDate || !task.endDate
+                    disabled: !task.startDate || !task.endDate || !isValid(parseISO(String(task.startDate))) || !isValid(parseISO(String(task.endDate)))
                 }))
             );
     }, [campaign.phases]);
 
     const overallStartDate = useMemo(() => {
-        const dates = (campaign?.phases || []).flatMap(p => p.tasks).map(t => t.startDate ? parseISO(t.startDate) : null).filter(Boolean);
-        return dates.length > 0 ? subDays(new Date(Math.min(...dates.map(d => d!.getTime()))), 1) : subDays(new Date(), 15);
+        const dates = (campaign?.phases || []).flatMap(p => (p.tasks || [])).map(t => t.startDate ? parseISO(String(t.startDate)) : null).filter(d => d && isValid(d)) as Date[];
+        return dates.length > 0 ? subDays(new Date(Math.min(...dates.map(d => d.getTime()))), 1) : subDays(new Date(), 15);
     }, [campaign]);
 
     const overallEndDate = useMemo(() => {
-        const dates = (campaign?.phases || []).flatMap(p => p.tasks).map(t => t.endDate ? parseISO(t.endDate) : null).filter(Boolean);
-        return dates.length > 0 ? addDays(new Date(Math.max(...dates.map(d => d!.getTime()))), 1) : addDays(new Date(), 15);
+        const dates = (campaign?.phases || []).flatMap(p => (p.tasks || [])).map(t => t.endDate ? parseISO(String(t.endDate)) : null).filter(d => d && isValid(d)) as Date[];
+        return dates.length > 0 ? addDays(new Date(Math.max(...dates.map(d => d.getTime()))), 1) : addDays(new Date(), 15);
     }, [campaign]);
 
     const { getLayoutProps, getTimelineProps } = usePlanby({
@@ -68,7 +70,7 @@ export function PlanbySchedule({ campaign, containerRef }: PlanbyScheduleProps) 
         isSidebar: true,
         isTimeline: true,
         isLine: true,
-        isProgramVisible: (program: Program) => !!program.since && !!program.till
+        isProgramVisible: (program: Program) => !!program.since && !!program.till && isValid(parseISO(program.since)) && isValid(parseISO(program.till))
     });
 
     return (
@@ -84,7 +86,7 @@ export function PlanbySchedule({ campaign, containerRef }: PlanbyScheduleProps) 
                             <p className="text-sm font-semibold">{program.data.title}</p>
                             <p className="text-xs text-secondary-foreground/70 truncate">{program.data.description}</p>
                         </div>
-                        <img src={program.data.image} alt="assignee" className="absolute w-6 h-6 rounded-full right-2 bottom-2" />
+                        {program.data.image && <img src={program.data.image} alt="assignee" className="absolute w-6 h-6 rounded-full right-2 bottom-2" />}
                     </div>
                 )}
                 renderChannel={({ channel, ...rest }) => (

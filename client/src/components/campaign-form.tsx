@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -18,7 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { ptBR } from "date-fns/locale/pt-BR"; // Corrected import
 
 type CampaignFormData = InsertCampaign;
 
@@ -60,13 +61,13 @@ export default function CampaignForm({ onClose, onSuccess, initialData }: Campai
       status: initialData?.status || 'draft',
       platforms: initialData?.platforms || [],
       objectives: initialData?.objectives || [],
-      budget: initialData?.budget ? String(initialData.budget) : '',
-      dailyBudget: initialData?.dailyBudget ? String(initialData.dailyBudget) : '',
+      budget: initialData?.budget !== undefined && initialData.budget !== null ? String(initialData.budget) : '',
+      dailyBudget: initialData?.dailyBudget !== undefined && initialData.dailyBudget !== null ? String(initialData.dailyBudget) : '',
       startDate: initialData?.startDate ? new Date(initialData.startDate) : undefined,
       endDate: initialData?.endDate ? new Date(initialData.endDate) : undefined,
       targetAudience: initialData?.targetAudience || '',
       industry: initialData?.industry || '',
-      avgTicket: initialData?.avgTicket ? String(initialData.avgTicket) : '',
+      avgTicket: initialData?.avgTicket !== undefined && initialData.avgTicket !== null ? String(initialData.avgTicket) : '',
       isTemplate: initialData?.isTemplate || false,
     },
   });
@@ -93,10 +94,11 @@ export default function CampaignForm({ onClose, onSuccess, initialData }: Campai
       
       const payload: any = { ...data };
       ['budget', 'dailyBudget', 'avgTicket'].forEach(key => {
-        if (payload[key] !== undefined && payload[key] !== null && payload[key] !== '') {
-          payload[key] = parseFloat(payload[key]);
+        const typedKey = key as keyof CampaignFormData;
+        if (payload[typedKey] !== undefined && payload[typedKey] !== null && payload[typedKey] !== '') {
+          payload[typedKey] = parseFloat(String(payload[typedKey]));
         } else {
-          payload[key] = null;
+          payload[typedKey] = null; // Ensure null is sent if empty or undefined
         }
       });
       
@@ -128,7 +130,7 @@ export default function CampaignForm({ onClose, onSuccess, initialData }: Campai
             <DialogHeader className="p-6 pb-4 border-b">
               <DialogTitle className="text-2xl">{isEditing ? 'Editar Campanha' : 'Nova Campanha'}</DialogTitle>
               <DialogDescription>
-                {isEditing ? `Modificando os detalhes da campanha "${initialData.name}".` : 'Preencha os campos abaixo para criar uma nova campanha.'}
+                {isEditing ? `Modificando os detalhes da campanha "${initialData?.name || ''}".` : 'Preencha os campos abaixo para criar uma nova campanha.'}
               </DialogDescription>
             </DialogHeader>
             <div className="flex-grow overflow-y-auto custom-scrollbar">
@@ -219,7 +221,7 @@ export default function CampaignForm({ onClose, onSuccess, initialData }: Campai
             </div>
             <DialogFooter className="p-6 pt-4 border-t">
               <Button type="button" variant="outline" onClick={onClose} disabled={mutation.isPending}>Cancelar</Button>
-              <Button type="submit" form="campaign-form" disabled={mutation.isPending} onClick={form.handleSubmit(onSubmit)}>
+              <Button type="submit" form="campaign-form" disabled={mutation.isPending || !form.formState.isValid} onClick={form.handleSubmit(onSubmit)}>
                   {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {isEditing ? 'Salvar Alterações' : 'Criar Campanha'}
               </Button>

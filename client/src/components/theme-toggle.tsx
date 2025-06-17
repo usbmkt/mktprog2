@@ -1,7 +1,7 @@
-
 // client/src/components/theme-toggle.tsx
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
+// ✅ CORREÇÃO APLICADA AQUI
 import { useTheme } from "@/components/theme-provider";
 
 export function ThemeToggle() {

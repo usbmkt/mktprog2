@@ -1,3 +1,4 @@
+
 // client/src/config/copyConfigurations.ts
 
 // Definição do tipo BaseGeneratorFormState para referência
@@ -8,7 +9,10 @@ export interface BaseGeneratorFormState {
   tone: 'professional' | 'casual' | 'urgent' | 'inspirational' | 'educational' | 'empathetic' | 'divertido' | 'sofisticado';
 }
 
-export type LaunchPhase = 'pre_launch' | 'launch' | 'post_launch';
+// Corrigindo a referência de LaunchPhase para usar os valores do enum do schema
+import type { launchPhaseEnum } from '@shared/schema';
+export type LaunchPhase = typeof launchPhaseEnum.enumValues[number];
+
 
 export interface FieldDefinition {
   name: string;
@@ -19,45 +23,9 @@ export interface FieldDefinition {
   required?: boolean;
   options?: Array<{ value: string; label: string }>;
   defaultValue?: string | number | boolean;
-  dependsOn?: string; // Para lógica condicional de campos
-  showIf?: (formData: Record<string, any>, baseData?: BaseGeneratorFormState) => boolean; // Para mostrar/ocultar campos
+  dependsOn?: string; 
+  showIf?: (formData: Record<string, any>, baseData?: BaseGeneratorFormState) => boolean; 
 }
-
-// Tipos de Dados de Copy Específica e Payloads
-export type SpecificPurposeData = Record<string, any>;
-export interface FullGeneratorPayload extends BaseGeneratorFormState {
-  launchPhase: LaunchPhase;
-  copyPurposeKey: string;
-  details: SpecificPurposeData;
-}
-export interface BackendGeneratedCopyItem {
-  mainCopy: string;
-  alternativeVariation1?: string;
-  alternativeVariation2?: string;
-  platformSuggestion?: string;
-  notes?: string;
-}
-export interface DisplayGeneratedCopy extends BackendGeneratedCopyItem {
-  timestamp: Date;
-  purposeKey: string;
-}
-export type SavedCopy = {
-  id: number;
-  title: string;
-  content: string;
-  purposeKey: string;
-  launchPhase: LaunchPhase;
-  details: SpecificPurposeData;
-  baseInfo: BaseGeneratorFormState;
-  platform?: string | null;
-  isFavorite: boolean;
-  tags: string[];
-  createdAt: string;
-  lastUpdatedAt: string;
-  campaignId?: number | null;
-  userId: number;
-  fullGeneratedResponse: BackendGeneratedCopyItem;
-};
 
 export interface CopyPurposeConfig {
   key: string;
@@ -65,9 +33,51 @@ export interface CopyPurposeConfig {
   phase: LaunchPhase;
   fields: FieldDefinition[];
   category: string;
-  description?: string; // Descrição da finalidade da copy
+  description?: string; 
   promptEnhancer?: (basePrompt: string, details: Record<string, any>, baseForm: BaseGeneratorFormState) => string;
 }
+
+
+// Adicionando tipos que podem estar faltando para o restante do arquivo
+export type SpecificPurposeData = Record<string, string | number | boolean | string[] | undefined>;
+
+export interface FullGeneratorPayload extends BaseGeneratorFormState {
+    launchPhase: LaunchPhase;
+    copyPurposeKey: string;
+    details: SpecificPurposeData;
+}
+
+export interface BackendGeneratedCopyItem {
+    mainCopy: string;
+    alternativeVariation1?: string;
+    alternativeVariation2?: string;
+    platformSuggestion?: string;
+    notes?: string;
+}
+
+export interface DisplayGeneratedCopy extends BackendGeneratedCopyItem {
+    timestamp: Date;
+    purposeKey: string;
+}
+
+export interface SavedCopy {
+    id: number;
+    title: string;
+    content: string;
+    purposeKey: string;
+    launchPhase: LaunchPhase;
+    details: Record<string, any>; // Ou um tipo mais específico se souber a estrutura
+    baseInfo: BaseGeneratorFormState;
+    platform?: string | null;
+    isFavorite: boolean;
+    tags: string[];
+    createdAt: string; // Ou Date
+    lastUpdatedAt: string; // Ou Date
+    campaignId?: number | null;
+    userId: number;
+    fullGeneratedResponse: BackendGeneratedCopyItem; // Assumindo que isso é o mesmo que BackendGeneratedCopyItem
+}
+
 
 export const allCopyPurposesConfig: CopyPurposeConfig[] = [
   // --- PRÉ-LANÇAMENTO ---
@@ -217,7 +227,7 @@ export const allCopyPurposesConfig: CopyPurposeConfig[] = [
       { name: 'offerHeadline', label: 'Headline Principal do Anúncio *', type: 'text', placeholder: 'Ex: Cansado de...? Descubra como!', required: true, tooltip: 'A frase de impacto para o anúncio.'},
       { name: 'keyBenefits', label: 'Principais Benefícios da Oferta (1 por linha) *', type: 'textarea', placeholder: 'Ex:\n- Aumente suas vendas\n- Tenha clareza', required: true, tooltip: 'Os resultados mais atraentes para o cliente.'},
       { name: 'targetAudienceFocus', label: 'Foco no Público-Alvo *', type: 'text', placeholder: 'Ex: Para coaches que querem lotar a agenda.', required: true, tooltip: 'Como o anúncio se conecta diretamente com o público-alvo.'},
-      { name: 'callToActionSalesPage', label: 'CTA para Página de Vendas *', type: 'text', placeholder: 'Ex: "Clique em Saiba Mais!"', required: true, defaultValue: 'Ver Detalhes e Inscrever-se!', tooltip: 'O botão ou texto para levar à página de vendas.' },
+      { name: 'callToActionSalesPage', label: 'CTA para Página de Vendas *', type: 'text', placeholder: 'Ex: "Clique em Saiba Mais!"', required: true, defaultValue: 'Ver Detalhes e Inscrever-se!', tooltip: 'O que você quer que a pessoa faça?'},
       { name: 'urgencyElementLaunch', label: 'Urgência/Escassez (Opcional)', type: 'text', placeholder: 'Ex: Inscrições SÓ esta semana!', tooltip: 'Por que agir agora?'},
     ]
   },
@@ -234,7 +244,7 @@ export const allCopyPurposesConfig: CopyPurposeConfig[] = [
       { name: 'linkToSalesPage', label: 'Link da Página de Vendas *', type: 'text', placeholder: 'https://...', required: true, tooltip: 'URL completa da sua página de vendas.'},
       { name: 'keyBonusesIfAny', label: 'Bônus Principais (1 por linha, opcional)', type: 'textarea', placeholder: 'Ex:\n- Bônus 1: Acesso VIP\n- Bônus 2: Mentoria', tooltip: 'Se houver bônus importantes para a abertura, liste-os.'},
       { name: 'reasonToActNow', label: 'Motivo para Agir Agora *', type: 'text', placeholder: 'Ex: Bônus para os 50 primeiros.', required: true, tooltip: 'Por que o lead deve comprar imediatamente?'},
-      { name: 'senderSignature', label: 'Assinatura do E-mail *', type: 'text', placeholder: 'Ex: Abraços, João Silva', required: true, tooltip: 'Como você assinará o e-mail.'},
+      { name: 'senderSignature', label: 'Assinatura do E-mail *', type: 'text', placeholder: 'Ex: Abraços, João Silva', required: true, tooltip: 'Como o email deve ser assinado?'},
     ]
   },
   { key: 'launch_email_testimonial_proof', label: 'E-mail: Prova Social/Depoimentos', phase: 'launch', category: 'E-mails (Lançamento)', description: 'Use o poder da prova social com e-mails que destacam depoimentos de clientes.', fields: [

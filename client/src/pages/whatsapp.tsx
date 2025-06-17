@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -111,7 +112,7 @@ function FlowEditorInner({ activeFlowId, onFlowSelect }: FlowEditorInnerProps) {
     const reactFlowInstance = useReactFlow<AllNodeDataTypes, any>();
     const { toast } = useToast();
     const queryClientInternal = useQueryClient();
-    const [campaignList, setCampaignList] = useState<CampaignSelectItem[]>([]);
+    
     const [flowNameInput, setFlowNameInput] = useState('');
     const [selectedCampaignIdForFlow, setSelectedCampaignIdForFlow] = useState<number | null>(null);
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -119,44 +120,7 @@ function FlowEditorInner({ activeFlowId, onFlowSelect }: FlowEditorInnerProps) {
     const [isSaving, setIsSaving] = useState(false);
     const [isTogglingStatus, setIsTogglingStatus] = useState(false);
 
-    // ✅ CORREÇÃO: Query para buscar os detalhes do fluxo ativo.
-    const { data: selectedFlow, isLoading: isLoadingFlowDetails, error: flowDetailsError } = useQuery<FlowData>({
-        queryKey: ['flowDetails', activeFlowId],
-        queryFn: async () => {
-            const response = await apiRequest('GET', `/api/flows?id=${activeFlowId}`);
-            if (!response.ok) {
-                if (response.status === 404) {
-                    toast({ title: "Aviso", description: `Fluxo ID ${activeFlowId} não encontrado.`, variant: "default" });
-                    onFlowSelect(0); // Um ID inválido para limpar a seleção
-                    return null;
-                }
-                throw new Error('Falha ao carregar detalhes do fluxo');
-            }
-            return response.json();
-        },
-        enabled: !!activeFlowId,
-        staleTime: 1000 * 60, // Cache de 1 minuto
-    });
-    
-    // ✅ CORREÇÃO: Efeito separado para ATUALIZAR o editor quando os dados do fluxo (selectedFlow) mudam.
-    useEffect(() => {
-        if (selectedFlow) {
-            setFlowNameInput(selectedFlow.name);
-            setSelectedCampaignIdForFlow(selectedFlow.campaign_id || null);
-            const flowElements = selectedFlow.elements || { nodes: [], edges: [] };
-            setNodes(flowElements.nodes.map(n => ({ ...n, dragHandle: '.node-header' })));
-            setEdges(flowElements.edges);
-            setTimeout(() => reactFlowInstance.fitView({ duration: 300, padding: 0.2 }), 100);
-        } else if (!activeFlowId) {
-            // Limpa o editor se nenhum fluxo estiver ativo
-            setFlowNameInput('');
-            setSelectedCampaignIdForFlow(null);
-            setNodes([]);
-            setEdges([]);
-        }
-    }, [selectedFlow, activeFlowId, setNodes, setEdges, reactFlowInstance]);
-
-    const { data: fetchedCampaigns } = useQuery<CampaignSelectItem[]>({
+    const { data: fetchedCampaigns = [] } = useQuery<CampaignSelectItem[]>({
         queryKey: ['campaignsForFlowEditor'],
         queryFn: async () => {
             const response = await apiRequest('GET', '/api/campaigns');
@@ -164,8 +128,43 @@ function FlowEditorInner({ activeFlowId, onFlowSelect }: FlowEditorInnerProps) {
             const data: any[] = await response.json();
             return data.map(c => ({ id: String(c.id), name: c.name }));
         },
-        onSuccess: (data) => setCampaignList(data)
     });
+    const campaignList = fetchedCampaigns;
+
+
+    const { data: selectedFlow, isLoading: isLoadingFlowDetails, error: flowDetailsError } = useQuery<FlowData>({
+        queryKey: ['flowDetails', activeFlowId],
+        queryFn: async () => {
+            const response = await apiRequest('GET', `/api/flows?id=${activeFlowId}`);
+            if (!response.ok) {
+                if (response.status === 404) {
+                    toast({ title: "Aviso", description: `Fluxo ID ${activeFlowId} não encontrado.`, variant: "default" });
+                    onFlowSelect(0); 
+                    return null;
+                }
+                throw new Error('Falha ao carregar detalhes do fluxo');
+            }
+            return response.json();
+        },
+        enabled: !!activeFlowId,
+        staleTime: 1000 * 60, 
+    });
+    
+    useEffect(() => {
+        if (selectedFlow) {
+            setFlowNameInput(selectedFlow.name);
+            setSelectedCampaignIdForFlow(selectedFlow.campaign_id ? Number(selectedFlow.campaign_id) : null);
+            const flowElements = selectedFlow.elements || { nodes: [], edges: [] };
+            setNodes(flowElements.nodes.map(n => ({ ...n, dragHandle: '.node-header' })));
+            setEdges(flowElements.edges);
+            setTimeout(() => reactFlowInstance.fitView({ duration: 300, padding: 0.2 }), 100);
+        } else if (!activeFlowId) {
+            setFlowNameInput('');
+            setSelectedCampaignIdForFlow(null);
+            setNodes([]);
+            setEdges([]);
+        }
+    }, [selectedFlow, activeFlowId, setNodes, setEdges, reactFlowInstance]);
     
     const nodeTypes = useMemo(() => ({ textMessage: TextMessageNode, buttonMessage: ButtonMessageNode, imageMessage: ImageNode, audioMessage: AudioMessageNode, fileMessage: FileMessageNode, locationMessage: LocationMessageNode, listMessage: ListMessageNode, delay: DelayNode, waitInput: WaitInputNode, setVariable: SetVariableNode, condition: ConditionNode, timeCondition: TimeConditionNode, loopNode: LoopNode, apiCall: ApiCallNode, webhookCall: WebhookCallNode, gptQuery: GPTQueryNode, tagContact: TagContactNode, goToFlow: GoToFlowNode, assignAgent: AssignAgentNode, endFlow: EndFlowNode, }), []);
 
@@ -564,7 +563,7 @@ const WhatsApp: React.FC = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {flowsList.map((flow) => (
                                 <Card key={flow.id} className={cn("neu-card hover:shadow-primary/20 cursor-pointer", activeFlowIdForEditor === flow.id && "ring-2 ring-primary shadow-primary/20")} onClick={() => setActiveFlowIdForEditor(flow.id)}>
-                                    <CardHeader className="pb-2 pt-3 px-3"><div className="flex justify-between items-start"><CardTitle className="text-sm font-semibold leading-tight line-clamp-2">{flow.name}</CardTitle><Badge variant={flow.status === 'active' ? 'default' : 'outline'} className={cn("text-xs px-1.5 py-0.5", flow.status === 'active' ? 'bg-green-500/80 border-green-400/50 text-white' : 'bg-muted')}>{flow.status === 'active' ? 'Ativo' : flow.status === 'inactive' ? 'Inativo' : 'Rascunho'}</Badge></div><CardDescription className="text-xs line-clamp-1 h-4 mt-0.5">{flow.campaign_id ? `Campanha: ${campaignListForFilter.find(c => Number(c.id) === flow.campaign_id)?.name || 'N/A'}` : 'Sem campanha'}</CardDescription></CardHeader>
+                                    <CardHeader className="pb-2 pt-3 px-3"><div className="flex justify-between items-start"><CardTitle className="text-sm font-semibold leading-tight line-clamp-2">{flow.name}</CardTitle><Badge variant={flow.status === 'active' ? 'default' : 'outline'} className={cn("text-xs px-1.5 py-0.5", flow.status === 'active' ? 'bg-green-500/80 border-green-400/50 text-white' : 'bg-muted')}>{flow.status === 'active' ? 'Ativo' : flow.status === 'inactive' ? 'Inativo' : 'Rascunho'}</Badge></div><CardDescription className="text-xs line-clamp-1 h-4 mt-0.5">{flow.campaign_id ? `Campanha: ${campaignListForFilter.find(c => Number(c.id) === Number(flow.campaign_id))?.name || 'N/A'}` : 'Sem campanha'}</CardDescription></CardHeader>
                                     <CardContent className="text-xs text-muted-foreground pt-1 pb-2 px-3"><p>Atualizado: {flow.updated_at ? new Date(flow.updated_at).toLocaleDateString('pt-BR', {day:'2-digit', month:'short'}) : 'N/A'}</p><div className="mt-1 flex justify-end"><Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive-foreground hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); deleteFlowFromList(flow.id);}} disabled={deleteFlowMutation.isPending}><IconTrash className="w-3 h-3" /></Button></div></CardContent>
                                 </Card>
                             ))}

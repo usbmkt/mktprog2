@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   TrendingUp, Eye, MousePointer, CreditCard, Users, Download, AlertTriangle, Loader2,
@@ -56,33 +57,33 @@ interface MetricCardProps {
   subtitle?: string;
 }
 
-
 export default function GlassmorphismDashboard() {
   const [timeRange, setTimeRange] = useState('30d');
   const [isLoading, setIsLoading] = useState(false);
 
   // Funções de formatação
-  const formatCurrency = (value: number | null | undefined): string => {
+  const formatCurrency = (value: number | string | null | undefined) => {
     if (value == null || isNaN(Number(value))) return "R$ 0,00";
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value));
   };
 
-  const formatNumber = (value: number | null | undefined): string => new Intl.NumberFormat('pt-BR').format(value ?? 0);
-  const formatPercentage = (value: number | null | undefined): string => `${(value ?? 0).toFixed(2)}%`;
+  const formatNumber = (value: number | string | null | undefined) => new Intl.NumberFormat('pt-BR').format(Number(value ?? 0));
+  const formatPercentage = (value: number | string | null | undefined) => `${(Number(value ?? 0)).toFixed(2)}%`;
 
   const getStatusBadge = (status: string) => {
-    const config = {
+    const config: Record<string, { class: string; icon: React.ElementType; label: string }> = {
       active: { class: 'glass-badge-success', icon: PlayCircle, label: 'Ativo' },
       paused: { class: 'glass-badge-warning', icon: PauseCircle, label: 'Pausado' },
       completed: { class: 'glass-badge-info', icon: CheckCircle, label: 'Concluído' },
       draft: { class: 'glass-badge-secondary', icon: Clock, label: 'Rascunho' }
-    }[status as keyof typeof config] || { class: 'glass-badge-secondary', icon: Clock, label: 'Rascunho' };
+    };
+    const currentConfig = config[status] || { class: 'glass-badge-secondary', icon: Clock, label: 'Rascunho' };
 
-    const IconComponent = config.icon;
+    const IconComponent = currentConfig.icon;
     return (
-      <span className={`inline-flex items-center gap-1 text-glow-primary ${config.class}`}>
+      <span className={`inline-flex items-center gap-1 ${currentConfig.class}`}>
         <IconComponent className="w-3 h-3" />
-        {config.label}
+        {currentConfig.label}
       </span>
     );
   };
@@ -91,24 +92,24 @@ export default function GlassmorphismDashboard() {
     <div className="glass-metric-card p-6 group">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/20 to-blue-600/20 border border-blue-100/80">
+          <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/20 to-blue-600/20 border border-blue-100/30">
             <Icon className="w-5 h-5 text-blue-400 icon-glow-primary" />
           </div>
           <div>
-            <h3 className="text-sm font-medium text-glow-primary">{title}</h3>
-            {subtitle && <p className="text-xs text-glow-primary">{subtitle}</p>}
+            <h3 className="text-sm font-medium text-gray-300">{title}</h3>
+            {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
           </div>
         </div>
-        {trend !== undefined && (
-          <div className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full text-glow-primary ${
-            trend > 0 ? 'bg-green-500/20' : 'bg-red-500/20'
+        {typeof trend === 'number' && (
+          <div className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
+            trend > 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
           }`}>
             {trend > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
             {Math.abs(trend)}%
           </div>
         )}
       </div>
-      <div className="text-2xl font-bold text-glow-primary mb-2">
+      <div className="text-2xl font-bold text-white text-glow-accent mb-2">
         {value}
       </div>
     </div>
@@ -119,7 +120,7 @@ export default function GlassmorphismDashboard() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="glass-loader w-16 h-16 animate-spin mx-auto mb-4"></div>
-          <p className="text-glow-primary">Carregando dashboard...</p>
+          <p className="text-gray-400">Carregando dashboard...</p>
         </div>
       </div>
     );
@@ -130,10 +131,10 @@ export default function GlassmorphismDashboard() {
       {/* Header */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 mb-8">
         <div className="space-y-2">
-          <h1 className="text-4xl font-bold text-white text-glow-primary floating-element">
+          <h1 className="text-4xl font-bold text-glow-primary floating-element">
             Dashboard Inteligente
           </h1>
-          <p className="text-glow-primary">
+          <p className="text-gray-400">
             Visão completa e insights em tempo real das suas campanhas
           </p>
         </div>
@@ -143,7 +144,7 @@ export default function GlassmorphismDashboard() {
             <select
               value={timeRange}
               onChange={(e) => setTimeRange(e.target.value)}
-              className="bg-transparent text-glow-primary outline-none"
+              className="bg-transparent text-white outline-none"
             >
               <option value="7d" className="bg-gray-800">7 dias</option>
               <option value="30d" className="bg-gray-800">30 dias</option>
@@ -151,7 +152,7 @@ export default function GlassmorphismDashboard() {
             </select>
           </div>
 
-          <button className="glass-button-primary text-glow-primary">
+          <button className="glass-button-primary">
             <Download className="w-4 h-4 mr-2" />
             Exportar
           </button>
@@ -165,35 +166,30 @@ export default function GlassmorphismDashboard() {
           value={formatCurrency(mockData.metrics.totalCostPeriod)}
           icon={DollarSign}
           trend={12.5}
-          subtitle="vs. período anterior"
         />
         <MetricCard
           title="ROI Médio"
           value={`${mockData.metrics.avgROI}x`}
           icon={TrendingUp}
           trend={8.2}
-          subtitle="Retorno sobre investimento"
         />
         <MetricCard
           title="Conversões"
           value={formatNumber(mockData.metrics.conversions)}
           icon={Target}
           trend={15.3}
-          subtitle="Total no período"
         />
         <MetricCard
           title="Cliques"
           value={formatNumber(mockData.metrics.clicks)}
           icon={MousePointer}
           trend={-2.1}
-          subtitle="Total de cliques"
         />
         <MetricCard
           title="Impressões"
           value={formatNumber(mockData.metrics.impressions)}
           icon={Eye}
           trend={7.8}
-          subtitle="Total de visualizações"
         />
       </div>
 
@@ -204,35 +200,30 @@ export default function GlassmorphismDashboard() {
           value={formatCurrency(mockData.metrics.cpa)}
           icon={Target}
           subtitle="Custo por aquisição"
-          trend={0} 
         />
         <MetricCard
           title="CPC"
           value={formatCurrency(mockData.metrics.cpc)}
           icon={MousePointer}
           subtitle="Custo por clique"
-          trend={0}
         />
         <MetricCard
           title="CVR"
           value={formatPercentage(mockData.metrics.cvr)}
           icon={Users}
           subtitle="Taxa de conversão"
-          trend={0}
         />
         <MetricCard
           title="CTR"
           value={formatPercentage(mockData.metrics.ctr)}
           icon={Activity}
           subtitle="Taxa de cliques"
-          trend={0}
         />
         <MetricCard
           title="CPM"
           value={formatCurrency(mockData.metrics.cpm)}
           icon={BarChartHorizontal}
           subtitle="Custo por mil"
-          trend={0}
         />
       </div>
 
@@ -251,10 +242,10 @@ export default function GlassmorphismDashboard() {
             {mockData.aiInsights.map((insight, index) => (
               <div key={index} className="glass-table-row p-4 rounded-xl">
                 <div className="flex items-start gap-3">
-                  <div className="p-1 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-500/250 border border-blue-500/30 mt-1">
+                  <div className="p-1 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-500/30 mt-1">
                     <Zap className="w-3 h-3 text-blue-400" />
                   </div>
-                  <p className="text-glow-primary leading-relaxed">{insight}</p>
+                  <p className="text-gray-300 leading-relaxed">{insight}</p>
                 </div>
               </div>
             ))}
@@ -264,7 +255,7 @@ export default function GlassmorphismDashboard() {
         {/* Active Campaigns */}
         <div className="glass-content-card p-6">
           <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-green-500/200 to-emerald-500/20 border border-green-500/30">
+            <div className="p-2 rounded-lg bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-500/30">
               <Activity className="w-6 h-6 text-green-400 icon-glow-primary" />
             </div>
             <h2 className="text-xl font-semibold text-glow-primary">Campanhas Ativas</h2>
@@ -275,8 +266,8 @@ export default function GlassmorphismDashboard() {
               <div key={campaign.id} className="glass-table-row p-4 rounded-xl">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="font-medium text-glow-primary mb-1">{campaign.name}</h3>
-                    <p className="text-sm text-glow-primary">
+                    <h3 className="font-medium text-white mb-1">{campaign.name}</h3>
+                    <p className="text-sm text-gray-400">
                       {formatCurrency(campaign.spent)} / {formatCurrency(campaign.budget)}
                     </p>
                   </div>
@@ -310,10 +301,10 @@ export default function GlassmorphismDashboard() {
             <div className="grid grid-cols-2 gap-4 w-full">
               {mockData.channelData.map((channel, index) => (
                 <div key={channel} className="text-center p-4 glass-table-row rounded-lg">
-                  <div className="text-2xl font-bold text-glow-primary mb-2">
+                  <div className="text-2xl font-bold text-blue-400 mb-2">
                     {mockData.roiData[index]}x
                   </div>
-                  <div className="text-sm text-glow-primary">{channel}</div>
+                  <div className="text-sm text-gray-400">{channel}</div>
                   <div className="mt-2 bg-gray-700/50 rounded-full h-1">
                     <div
                       className="bg-gradient-to-r from-blue-500 to-cyan-500 h-1 rounded-full"
@@ -337,7 +328,7 @@ export default function GlassmorphismDashboard() {
 
           <div className="glass-chart-container h-64 flex items-center justify-center">
             <div className="w-full">
-              <div className="flex items-end justify-between h-40 gap-2">
+              <div className="flex items-end justify-between h-40 gap-2"> {/* Aumentei a altura para melhor visualização */}
                 {mockData.timeSeriesData.labels.slice(6).map((month, index) => (
                   <div key={month} className="flex flex-col items-center flex-1">
                     <div
@@ -347,15 +338,15 @@ export default function GlassmorphismDashboard() {
                         minHeight: '20px'
                       }}
                     ></div>
-                    <span className="text-xs text-glow-primary mt-2">{month}</span>
+                    <span className="text-xs text-gray-400 mt-2">{month}</span>
                   </div>
                 ))}
               </div>
               <div className="mt-4 text-center">
-                <div className="text-2xl font-bold text-glow-primary mb-1">
+                <div className="text-2xl font-bold text-green-400 mb-1">
                   +{((mockData.metrics.avgROI - 2.8) / 2.8 * 100).toFixed(1)}%
                 </div>
-                <div className="text-sm text-glow-primary">vs. período anterior</div>
+                <div className="text-sm text-gray-400">vs. período anterior</div>
               </div>
             </div>
           </div>
@@ -371,7 +362,7 @@ export default function GlassmorphismDashboard() {
             </div>
             <h2 className="text-xl font-semibold text-glow-primary">Todas as Campanhas</h2>
           </div>
-          <button className="glass-button-primary text-sm text-glow-primary">
+          <button className="glass-button-primary text-sm">
             <Filter className="w-4 h-4 mr-2" />
             Filtrar
           </button>
@@ -381,39 +372,39 @@ export default function GlassmorphismDashboard() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-700/50">
-                <th className="text-left py-3 px-2 text-sm font-medium text-glow-primary">Campanha</th>
-                <th className="text-left py-3 px-2 text-sm font-medium text-glow-primary">Status</th>
-                <th className="text-right py-3 px-2 text-sm font-medium text-glow-primary">Budget</th>
-                <th className="text-right py-3 px-2 text-sm font-medium text-glow-primary">Gasto</th>
-                <th className="text-right py-3 px-2 text-sm font-medium text-glow-primary">Cliques</th>
-                <th className="text-right py-3 px-2 text-sm font-medium text-glow-primary">Conversões</th>
-                <th className="text-right py-3 px-2 text-sm font-medium text-glow-primary">ROI</th>
+                <th className="text-left py-3 px-2 text-sm font-medium text-gray-400">Campanha</th>
+                <th className="text-left py-3 px-2 text-sm font-medium text-gray-400">Status</th>
+                <th className="text-right py-3 px-2 text-sm font-medium text-gray-400">Budget</th>
+                <th className="text-right py-3 px-2 text-sm font-medium text-gray-400">Gasto</th>
+                <th className="text-right py-3 px-2 text-sm font-medium text-gray-400">Cliques</th>
+                <th className="text-right py-3 px-2 text-sm font-medium text-gray-400">Conversões</th>
+                <th className="text-right py-3 px-2 text-sm font-medium text-gray-400">ROI</th>
               </tr>
             </thead>
             <tbody>
               {mockData.recentCampaigns.map(campaign => (
                 <tr key={campaign.id} className="glass-table-row border-b border-gray-800/30">
                   <td className="py-4 px-2">
-                    <div className="font-medium text-glow-primary">{campaign.name}</div>
+                    <div className="font-medium text-white">{campaign.name}</div>
                   </td>
                   <td className="py-4 px-2">
                     {getStatusBadge(campaign.status)}
                   </td>
-                  <td className="py-4 px-2 text-right text-glow-primary">
+                  <td className="py-4 px-2 text-right text-gray-300">
                     {formatCurrency(campaign.budget)}
                   </td>
-                  <td className="py-4 px-2 text-right text-glow-primary">
+                  <td className="py-4 px-2 text-right text-gray-300">
                     {formatCurrency(campaign.spent)}
                   </td>
-                  <td className="py-4 px-2 text-right text-glow-primary">
+                  <td className="py-4 px-2 text-right text-gray-300">
                     {formatNumber(campaign.clicks)}
                   </td>
-                  <td className="py-4 px-2 text-right text-glow-primary">
+                  <td className="py-4 px-2 text-right text-gray-300">
                     {formatNumber(campaign.conversions)}
                   </td>
                   <td className="py-4 px-2 text-right">
-                    <span className="font-semibold text-glow-primary">
-                      {(campaign.spent > 0 ? (campaign.conversions * 100 / campaign.spent) : 0).toFixed(1)}x
+                    <span className="text-green-400 font-semibold">
+                      {(campaign.conversions * 100 / campaign.spent).toFixed(1)}x
                     </span>
                   </td>
                 </tr>
@@ -422,6 +413,6 @@ export default function GlassmorphismDashboard() {
           </table>
         </div>
       </div>
-    </div>
-  );
-}
+    </div> 
+  ); 
+} 

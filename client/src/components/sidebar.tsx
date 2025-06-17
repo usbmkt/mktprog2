@@ -9,7 +9,22 @@ import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
 import LogoPng from '@/img/logo.png';
 import {
-  LayoutDashboard, Rocket, Image as ImageIcon, DollarSign, Filter, PenTool, TrendingUp, Bell, MessageCircle, Download, LogOut, Globe, ChevronLeft, ChevronRight, Settings, CalendarCheck
+  LayoutDashboard,
+  Rocket,
+  Image as ImageIcon,
+  DollarSign,
+  Filter,
+  PenTool,
+  TrendingUp,
+  Bell,
+  MessageCircle,
+  Download,
+  LogOut,
+  Globe,
+  ChevronLeft,
+  ChevronRight,
+  Settings,
+  CalendarCheck
 } from 'lucide-react';
 
 const menuItems = [
@@ -36,74 +51,157 @@ interface DashboardData {
 
 export default function Sidebar() {
   const [location] = useLocation();
-  const { user, logout } = useAuthStore();
+  const { user, logout, isAuthenticated } = useAuthStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const { data: dashboardData } = useQuery<DashboardData>({
-    queryKey: ['sidebarAlerts'],
+    queryKey: ['dashboardDataSidebar'], 
     queryFn: async () => {
-      if (!user) return { alertCount: 0, metrics: {}, recentCampaigns: [] };
-      try {
-        const response = await apiRequest('GET', '/api/dashboard?timeRange=30d');
-        if (!response.ok) return { alertCount: 0, metrics: {}, recentCampaigns: [] };
-        return await response.json();
-      } catch (e) {
-        return { alertCount: 0, metrics: {}, recentCampaigns: [] };
+      if (!user) return { metrics: {}, recentCampaigns: [], alertCount: 0 };
+      const response = await apiRequest('GET', '/api/dashboard?timeRange=30d'); 
+      if (!response.ok) {
+        console.error('Erro ao buscar dados do dashboard para a sidebar');
+        return { metrics: {}, recentCampaigns: [], alertCount: 0 };
       }
+      return response.json();
     },
-    enabled: !!user,
-    staleTime: 5 * 60 * 1000,
+    enabled: !!user && isAuthenticated,
+    staleTime: 5 * 60 * 1000, 
   });
 
   const alertCount = dashboardData?.alertCount || 0;
+
   const toggleSidebar = () => setIsCollapsed(!isCollapsed);
 
   const getUserInitials = (username: string | undefined) => {
     if (!username) return 'U';
-    return username.split(' ').map(name => name[0]).join('').toUpperCase().slice(0, 2);
+    return username
+      .split(' ')
+      .map(name => name[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   return (
-    <aside className={cn("flex h-full flex-col bg-sidebar-background transition-all duration-300 ease-in-out border-r border-sidebar-border", isCollapsed ? "w-[72px]" : "w-60")}>
-      <div className="flex h-[72px] shrink-0 items-center justify-center p-2">
-        <img src={LogoPng} alt="Logo" className={cn("transition-all duration-300", isCollapsed ? "h-10" : "h-12")} />
+    <aside 
+      className={cn(
+        "neu-sidebar flex flex-col h-full transition-all duration-300 ease-in-out",
+        isCollapsed ? "w-[72px]" : "w-60"
+      )}
+    >
+      <div className={cn(
+          "p-3 flex items-center border-b border-sidebar-border shrink-0 justify-center h-[72px]"
+        )}
+      >
+        <Link 
+          href="/dashboard" 
+          className={cn(
+            "flex items-center justify-center group outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar-background rounded-md",
+            isCollapsed ? "w-full h-full p-1" : "p-2"
+          )}
+          title={isCollapsed ? "Dashboard" : undefined}
+        >
+            <img 
+              src={LogoPng}
+              alt="USB MKT Logo" 
+              className={cn(
+                "transition-all duration-300 ease-in-out object-contain",
+                isCollapsed ? "h-12 w-12" : "h-16 w-auto" 
+              )}
+              style={{ filter: 'drop-shadow(0 0 6px hsl(var(--primary)/0.6)) drop-shadow(0 0 12px hsl(var(--primary)/0.4))' }}
+            />
+        </Link>
       </div>
 
-      <nav className="flex-1 space-y-1.5 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 px-2.5 py-3 space-y-1.5 overflow-y-auto">
         {menuItems.map((item) => {
-          const isActive = location === item.path || (location === '/' && item.path === '/dashboard');
           const Icon = item.icon;
+          const isActive = location === item.path || (location === '/' && item.path === '/dashboard');
           const hasNotification = item.notificationKey === 'alerts' && user && alertCount > 0;
+          
           return (
             <Link key={item.path} href={item.path} title={isCollapsed ? item.label : undefined}>
-              <a className={cn( "group flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground", isActive ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground hover:bg-accent/50", isCollapsed && "h-11 w-11 justify-center p-0" )}>
-                <Icon className={cn("h-5 w-5 shrink-0", !isCollapsed && "mr-3", isActive && "icon-glow")} />
-                <span className={cn("truncate", isCollapsed && "sr-only")}>{item.label}</span>
-                {!isCollapsed && hasNotification && (<span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs font-bold text-destructive-foreground">{alertCount > 9 ? '9+' : alertCount}</span>)}
-                {isCollapsed && hasNotification && (<span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full border-2 border-sidebar-background bg-destructive"></span>)}
-              </a>
+              <div 
+                className={cn(
+                  "sidebar-link group relative", 
+                  isActive && "active",
+                  isCollapsed ? "justify-center aspect-square p-0" : "px-3 py-2.5 space-x-2.5"
+                )}
+              >
+                <Icon className={cn(
+                    "sidebar-link-icon w-[18px] h-[18px] shrink-0",
+                     isActive ? "text-sidebar-accent-foreground icon-neon-glow" : "text-sidebar-foreground/70 group-hover:text-sidebar-accent-foreground group-hover:icon-neon-glow"
+                    )} 
+                />
+                {!isCollapsed && (
+                  <span className={cn("sidebar-link-text text-xs font-medium truncate", isActive && "text-neon-glow")}>{item.label}</span>
+                )}
+                {!isCollapsed && hasNotification && (
+                  <span className="alert-badge ml-auto">{alertCount > 9 ? '9+' : alertCount}</span>
+                )}
+                 {isCollapsed && hasNotification && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full border-2 border-sidebar-background"></span>
+                )}
+              </div>
             </Link>
           );
         })}
       </nav>
 
-      <div className={cn("mt-auto shrink-0 border-t border-sidebar-border p-3 space-y-2")}>
-        <ThemeToggle />
-        <Button variant="ghost" size="icon" className="w-full h-10" onClick={toggleSidebar} title={isCollapsed ? "Expandir sidebar" : "Recolher sidebar"}>
-            {isCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
-        </Button>
-        {user && (
-          <div className={cn("flex items-center", isCollapsed ? "justify-center" : "justify-between")}>
-             <div className={cn("flex items-center gap-2", isCollapsed && "hidden")}>
-                <Avatar className="h-8 w-8"><AvatarFallback className="bg-primary/20 text-primary">{getUserInitials(user.username)}</AvatarFallback></Avatar>
-                <span className="text-xs font-medium truncate">{user.username}</span>
-             </div>
-             <Button variant="ghost" size="icon" className="h-10 text-muted-foreground hover:text-destructive" onClick={logout} title="Sair">
-                <LogOut className="h-5 w-5" />
-             </Button>
-          </div>
+      <div className={cn(
+          "px-2.5 py-3 border-t border-sidebar-border mt-auto shrink-0", 
+          isCollapsed ? "space-y-2" : "flex items-center justify-between gap-2"
         )}
+      >
+        <div className={cn(isCollapsed ? "w-full flex justify-center" : "")}>
+            <ThemeToggle />
+        </div>
+        <Button
+            variant="ghost"
+            onClick={toggleSidebar}
+            className={cn(
+                "theme-toggle-button text-muted-foreground hover:text-foreground",
+                isCollapsed ? "w-full" : "p-2" 
+            )}
+            title={isCollapsed ? "Expandir sidebar" : "Recolher sidebar"}
+        >
+            {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+        </Button>
       </div>
+
+      {!isCollapsed && user && (
+        <div className="p-2.5 border-t border-sidebar-border shrink-0">
+          <div className="neu-card p-2.5">
+            <div className="flex items-center space-x-2">
+              <Avatar className="w-9 h-9 neu-card-inset p-0.5">
+                <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                  {getUserInitials(user?.username)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-foreground truncate">
+                  {user?.username}
+                </p>
+                <p className="text-[0.7rem] text-muted-foreground truncate">
+                  {user?.email}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  logout();
+                }}
+                className="theme-toggle-button p-1.5 text-muted-foreground hover:text-destructive"
+                title="Sair"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

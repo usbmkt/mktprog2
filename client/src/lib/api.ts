@@ -1,28 +1,27 @@
+
 /// <reference types="vite/client" />
 // client/src/lib/api.ts
 import { useAuthStore } from './auth';
 
 // Helper para construir a URL completa da API
 function getApiUrl(path: string): string {
-  const apiUrlFromEnv = import.meta.env.VITE_API_URL;
+  const apiUrlFromEnv = import.meta.env.VITE_API_URL as string | undefined; 
   if (apiUrlFromEnv && typeof apiUrlFromEnv === 'string' && apiUrlFromEnv.trim() !== '') {
-    // Remove barras extras e junta
     const base = apiUrlFromEnv.replace(/\/$/, '');
     const endpoint = path.startsWith('/') ? path : `/${path}`;
     return `${base}${endpoint}`;
   }
-  // Se VITE_API_URL não estiver definida, assume que a URL já é completa ou relativa à origem (para proxy)
   return path;
 }
 
 export async function apiRequest(
   method: string,
-  url: string, // url agora é o PATH da API, ex: /auth/login
+  url: string, 
   data?: unknown,
   isFormData: boolean = false
 ): Promise<Response> {
   const { token } = useAuthStore.getState();
-  const fullApiUrl = getApiUrl(url); // Constrói a URL completa
+  const fullApiUrl = getApiUrl(url); 
 
   const headers: Record<string, string> = {};
 
@@ -43,7 +42,7 @@ export async function apiRequest(
     body = undefined;
   }
 
-  const response = await fetch(fullApiUrl, { // Usa fullApiUrl
+  const response = await fetch(fullApiUrl, { 
     method,
     headers,
     body,
@@ -54,9 +53,9 @@ export async function apiRequest(
     try {
       const errorPayload = await response.json();
       if (errorPayload && typeof errorPayload === 'object') {
-        if (errorPayload.error && typeof errorPayload.error === 'string' && errorPayload.error.trim() !== '') {
+        if ('error' in errorPayload && typeof errorPayload.error === 'string' && errorPayload.error.trim() !== '') {
           errorMessage = errorPayload.error;
-        } else if (errorPayload.message && typeof errorPayload.message === 'string' && errorPayload.message.trim() !== '') {
+        } else if ('message' in errorPayload && typeof errorPayload.message === 'string' && errorPayload.message.trim() !== '') {
           errorMessage = errorPayload.message;
         }
       }
@@ -79,13 +78,13 @@ export async function apiRequest(
 }
 
 export async function uploadFile(
-  url: string, // url agora é o PATH da API, ex: /creatives
+  url: string, 
   file: File,
   additionalData?: Record<string, string>,
   method: string = 'POST'
 ): Promise<Response> {
   const { token } = useAuthStore.getState();
-  const fullApiUrl = getApiUrl(url); // Constrói a URL completa
+  const fullApiUrl = getApiUrl(url); 
 
   const formData = new FormData();
   formData.append('file', file); 
@@ -102,7 +101,7 @@ export async function uploadFile(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(fullApiUrl, { // Usa fullApiUrl
+  const response = await fetch(fullApiUrl, { 
     method: method,
     headers,
     body: formData,
@@ -113,9 +112,9 @@ export async function uploadFile(
     try {
       const errorPayload = await response.json();
       if (errorPayload && typeof errorPayload === 'object') {
-        if (errorPayload.error && typeof errorPayload.error === 'string' && errorPayload.error.trim() !== '') {
+        if ('error' in errorPayload && typeof errorPayload.error === 'string' && errorPayload.error.trim() !== '') {
           errorMessage = errorPayload.error;
-        } else if (errorPayload.message && typeof errorPayload.message === 'string' && errorPayload.message.trim() !== '') {
+        } else if ('message' in errorPayload && typeof errorPayload.message === 'string' && errorPayload.message.trim() !== '') {
           errorMessage = errorPayload.message;
         }
       }

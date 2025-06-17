@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
-import { Button } from "@/components/ui/button"; // Opcional, para estilizar o fallback
+import { Button } from "@/components/ui/button"; 
 
 interface Props {
   children: ReactNode;
@@ -19,28 +19,26 @@ class ErrorBoundary extends Component<Props, State> {
     errorInfo: null,
   };
 
-  public static getDerivedStateFromError(error: Error): Pick<State, 'hasError' | 'error'> {
+  public static getDerivedStateFromError(error: Error): Partial<State> { // Return type corrected
     return { hasError: true, error };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("ErrorBoundary caught an error:", error, errorInfo);
-    this.setState({ errorInfo });
-    // Aqui você poderia logar o erro para um serviço externo, ex: Sentry
+    this.setState({ errorInfo }); // Correctly use this.setState
     // logErrorToMyService(error, errorInfo);
   }
 
   resetErrorBoundary = () => {
-    this.setState({ hasError: false, error: null, errorInfo: null });
+    this.setState({ hasError: false, error: null, errorInfo: null }); // Correctly use this.setState
   };
 
   public render() {
-    if (this.state.hasError && this.state.error) {
-      if (this.props.fallbackRender && this.state.errorInfo) {
+    if (this.state.hasError && this.state.error) { // Correctly access state via this.state
+      if (this.props.fallbackRender && this.state.errorInfo) { // Correctly access props via this.props
         return this.props.fallbackRender(this.state.error, this.state.errorInfo, this.resetErrorBoundary);
       }
 
-      // Fallback UI padrão caso fallbackRender não seja fornecido
       return (
         <div style={{ padding: '20px', border: '1px solid red', margin: '10px', borderRadius: '8px', backgroundColor: '#fff0f0' }}>
           <h2>Algo deu errado.</h2>
@@ -56,7 +54,7 @@ class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    return this.props.children;
+    return this.props.children; // Correctly access props via this.props
   }
 }
 

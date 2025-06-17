@@ -1,5 +1,5 @@
 // client/src/pages/login.tsx
-import React, { useState } from 'react'; // Added React import
+import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,12 +17,11 @@ export default function Login() {
   const { login, register, loginWithGoogle, isLoading: authLoading, error: authError, clearError } = useAuthStore(); 
   const { toast } = useToast();
 
-  // State for forms remains, though inputs are removed. Might be used by other logic or future additions.
   const [loginForm, setLoginForm] = useState({ email: 'admin@usbmkt.com', password: 'admin123' });
   const [registerForm, setRegisterForm] = useState({ username: '', email: '', password: '' });
 
   const handleLogin = async (e: React.FormEvent) => { e.preventDefault(); clearError(); const success = await login(loginForm.email, loginForm.password); if (success) { toast({ title: "Login bem-sucedido!", description: "Bem-vindo de volta.", }); navigate('/dashboard'); } else { toast({ title: "Erro de Login", description: useAuthStore.getState().error || "Verifique seu e-mail e senha.", variant: "destructive", }); } };
-  const handleRegister = async (e: React.FormEvent) => { e.preventDefault(); clearError(); if(registerForm.password.length < 6 && registerForm.password !== "admin123") { toast({ title: "Erro de Registro", description: "A senha deve ter pelo menos 6 caracteres.", variant: "destructive" }); return; } const success = await register(registerForm.username, registerForm.email, registerForm.password); if (success) { toast({ title: "Registro bem-sucedido!", description: "Sua conta foi criada.", }); navigate('/dashboard'); } else { toast({ title: "Erro de Registro", description: useAuthStore.getState().error || "Não foi possível criar a conta.", variant: "destructive", }); }};
+  const handleRegister = async (e: React.FormEvent) => { e.preventDefault(); clearError(); if(registerForm.password.length < 6) { toast({ title: "Erro de Registro", description: "A senha deve ter pelo menos 6 caracteres.", variant: "destructive" }); return; } const success = await register(registerForm.username, registerForm.email, registerForm.password); if (success) { toast({ title: "Registro bem-sucedido!", description: "Sua conta foi criada.", }); navigate('/dashboard'); } else { toast({ title: "Erro de Registro", description: useAuthStore.getState().error || "Não foi possível criar a conta.", variant: "destructive", }); }};
 
   const handleGoogleLoginSuccess = async (credentialResponse: CredentialResponse) => {
     if (credentialResponse.credential) {
@@ -69,7 +68,7 @@ export default function Login() {
             
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-4">
-                {/* Inputs de email e senha removidos */}
+                 {/* ... (inputs de login existentes) ... */}
                 <Button type="submit" className="w-full neu-button-primary" disabled={authLoading}>
                   {authLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Entrar
@@ -79,7 +78,7 @@ export default function Login() {
             
             <TabsContent value="register">
               <form onSubmit={handleRegister} className="space-y-4">
-                 {/* Inputs de username, email e senha removidos */}
+                 {/* ... (inputs de registro existentes) ... */}
                 <Button type="submit" className="w-full neu-button-primary" disabled={authLoading}>
                   {authLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Criar conta

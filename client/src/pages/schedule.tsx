@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/api';
@@ -161,7 +162,7 @@ const ModernGanttChart = ({ campaign, calculatedPhases }: { campaign: FullCampai
                             )}
                             {sortedPhases.map((phase, pIndex) => {
                                 const phaseTimeline = calculatedPhases.find(p => p.id === phase.id);
-                                if (!phaseTimeline || !phaseTimeline.startDate || !phaseTimeline.endDate) return null;
+                                if (!phaseTimeline || !phaseTimeline.startDate || !phaseTimeline.endDate || !isValid(phaseTimeline.startDate) || !isValid(phaseTimeline.endDate)) return null;
                                 const phaseStartOffset = differenceInDays(phaseTimeline.startDate, startDate);
                                 const phaseDurationDays = Math.max(1, differenceInDays(phaseTimeline.endDate, phaseTimeline.startDate) + 1);
                                 const phasePos = itemPositions.positions[`phase-${phase.id}`];
@@ -169,9 +170,9 @@ const ModernGanttChart = ({ campaign, calculatedPhases }: { campaign: FullCampai
                                 <React.Fragment key={`bar-group-${phase.id}`}>
                                     <Tooltip><TooltipTrigger asChild><div className="absolute h-full border-l-4 border-opacity-60" style={{ top: `${phasePos.top}px`, height: `${phasePos.height}px`, left: `${phaseStartOffset * DAY_WIDTH}px`, width: `${phaseDurationDays * DAY_WIDTH}px`, padding: '12px 4px', borderLeftColor: getPhaseColor(pIndex, 1) }}><div className="h-full w-full rounded-md opacity-30" style={{backgroundColor: getPhaseColor(pIndex, 0.6)}}></div></div></TooltipTrigger><TooltipContent><p>{format(phaseTimeline.startDate, 'dd/MM/yy')} a {format(phaseTimeline.endDate, 'dd/MM/yy')} ({phaseDurationDays} dias)</p></TooltipContent></Tooltip>
                                     {(phase.tasks || []).map(task => {
-                                        if (!task.startDate || !task.endDate || !isValid(parseISO(task.startDate)) || !isValid(parseISO(task.endDate))) return null;
-                                        const taskStart = parseISO(task.startDate);
-                                        const taskEnd = parseISO(task.endDate);
+                                        if (!task.startDate || !task.endDate || !isValid(parseISO(String(task.startDate))) || !isValid(parseISO(String(task.endDate)))) return null;
+                                        const taskStart = parseISO(String(task.startDate));
+                                        const taskEnd = parseISO(String(task.endDate));
                                         const startOffset = differenceInDays(taskStart, startDate);
                                         const durationDays = Math.max(1, differenceInDays(taskEnd, taskStart) + 1);
                                         const taskPos = itemPositions.positions[`task-${task.id}`];
@@ -231,9 +232,10 @@ export default function SchedulePage() {
   const timeline = useMemo(() => {
     if (!selectedCampaignId || phasesState.length === 0 || !eventDate || !isValid(eventDate)) return { calculatedPhases: [] };
     const eventPhaseIndex = phasesState.findIndex(p => p.name.toLowerCase() === 'evento');
-    if (eventPhaseIndex === -1) return { calculatedPhases: [] };
+    if (eventPhaseIndex === -1) return { calculatedPhases: [] }; // Consider a default if "evento" not found?
     let currentDate = new Date(eventDate);
     const tempPhases: (Omit<InsertCampaignPhase, 'campaignId'> & { duration: number })[] = [];
+    // Phases from event date onwards
     for (let i = eventPhaseIndex; i < phasesState.length; i++) {
         const phase = phasesState[i];
         const startDate = new Date(currentDate);
@@ -241,6 +243,7 @@ export default function SchedulePage() {
         tempPhases.push({ id: phase.id, name: phase.name, order: phase.order, startDate, endDate, duration: phase.duration });
         currentDate = addDays(endDate, 1);
     }
+    // Phases before event date
     currentDate = subDays(new Date(eventDate), 1);
     for (let i = eventPhaseIndex - 1; i >= 0; i--) {
         const phase = phasesState[i];
@@ -273,13 +276,20 @@ export default function SchedulePage() {
     return new Promise((resolve) => {
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = 450; tempCanvas.height = 300;
+        // Append to body to ensure it's renderable, but keep it off-screen
+        tempCanvas.style.position = 'absolute';
+        tempCanvas.style.left = '-9999px';
         document.body.appendChild(tempCanvas);
+
         const ctx = tempCanvas.getContext('2d');
         if (!ctx) { document.body.removeChild(tempCanvas); resolve(''); return; }
+
         new Chart(ctx, {
             type: chartType, data: chartConfig,
             options: { responsive: false, animation: { duration: 0 }, plugins: { legend: { display: true, position: 'bottom', labels: {font: {size: 10}} }, title: { display: false } } }
         });
+        
+        // Increased delay slightly to ensure chart renders, especially complex ones
         setTimeout(() => { resolve(tempCanvas.toDataURL('image/png', 1.0)); document.body.removeChild(tempCanvas); }, 500);
     });
   };
@@ -303,9 +313,9 @@ export default function SchedulePage() {
                     const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
                     doc.addImage(logoDataUrl, 'PNG', margin, 10, imgWidth, imgHeight);
                 }
-                doc.setFontSize(18); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59);
+                doc.setFontSize(18); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59); // Tailwind slate-800
                 doc.text('RELATÓRIO DE CRONOGRAMA', doc.internal.pageSize.width - margin, 15, { align: 'right' });
-                doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139);
+                doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139); // Tailwind slate-500
                 doc.text(campaign.name, doc.internal.pageSize.width - margin, 22, { align: 'right' });
                 doc.text(`Data de Emissão: ${format(new Date(), 'dd/MM/yyyy')}`, doc.internal.pageSize.width - margin, 27, { align: 'right' });
 
@@ -330,11 +340,11 @@ export default function SchedulePage() {
         const statusChartImage = await getChartImage(statusChartData, 'doughnut');
         const phaseChartImage = await getChartImage(phaseChartData, 'bar');
         
-        const chartWidth = (doc.internal.pageSize.width - 15 * 3) / 2;
-        const chartHeight = chartWidth * 0.75;
+        const chartWidth = (doc.internal.pageSize.width - 15 * 3) / 2; // Two charts per row
+        const chartHeight = chartWidth * 0.75; // Maintain aspect ratio
         let currentY = 55;
 
-        doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(51, 65, 85);
+        doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.setTextColor(51, 65, 85); // slate-700
         doc.text("Status das Tarefas", 15 + chartWidth/2, currentY, { align: 'center'});
         doc.text("Tarefas por Fase", 15 + chartWidth + 10 + chartWidth/2, currentY, { align: 'center'});
         currentY += 5;
@@ -343,7 +353,7 @@ export default function SchedulePage() {
         if(phaseChartImage) doc.addImage(phaseChartImage, 'PNG', 15 + chartWidth + 10, currentY, chartWidth, chartHeight);
         
         // --- PAGE 2+: DETAILS ---
-        const tableData = allTasks.map(task => { const phaseName = (campaign.phases || []).find(p => p.id === task.phaseId)?.name || 'N/A'; return [ phaseName, task.name, task.startDate ? format(parseISO(task.startDate), 'dd/MM/yy') : 'N/A', task.endDate ? format(parseISO(task.endDate), 'dd/MM/yy') : 'N/A', task.assignee?.username || 'N/A', getStatusBadgeConfig(task.status).label, task.notes || '']; });
+        const tableData = allTasks.map(task => { const phaseName = (campaign.phases || []).find(p => p.id === task.phaseId)?.name || 'N/A'; return [ phaseName, task.name, task.startDate ? format(parseISO(String(task.startDate)), 'dd/MM/yy') : 'N/A', task.endDate ? format(parseISO(String(task.endDate)), 'dd/MM/yy') : 'N/A', task.assignee?.username || 'N/A', getStatusBadgeConfig(task.status).label, task.notes || '']; });
         if(tableData.length > 0) {
             doc.addPage();
             doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 41, 59);
@@ -393,7 +403,7 @@ export default function SchedulePage() {
                 <CardHeader><CardTitle>Resumo das Tarefas</CardTitle><CardDescription>Lista detalhada de todas as tarefas organizadas por fase.</CardDescription></CardHeader>
                 <CardContent>
                   <div className="space-y-6">
-                    {campaign.phases.map((phase, phaseIndex) => (<div key={phase.id} className="space-y-3"><div className="flex items-center gap-3"><div className="w-4 h-4 rounded-full" style={{ backgroundColor: getPhaseColor(phaseIndex) }}/><h3 className="text-lg font-semibold text-foreground">{phase.name}</h3><Badge variant="outline">{(phase.tasks || []).length} tarefa{phase.tasks?.length !== 1 ? 's' : ''}</Badge></div>{phase.tasks.length === 0 ? <p className="text-muted-foreground italic ml-7">Nenhuma tarefa nesta fase</p> : (<div className="ml-7 space-y-2">{(phase.tasks || []).map(task => (<div key={task.id} className="flex items-center justify-between p-3 neu-card-inset"><div className="flex-grow"><div className="flex items-center gap-3"><h4 className="font-medium text-foreground">{task.name}</h4><Badge variant="outline" className={cn("text-xs", getStatusBadgeConfig(task.status).className)}>{getStatusBadgeConfig(task.status).label}</Badge></div><div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">{task.startDate && task.endDate && (<span>{format(parseISO(task.startDate), 'dd/MM/yy')} - {format(parseISO(task.endDate), 'dd/MM/yy')}</span>)}{task.assignee && (<span>Responsável: {task.assignee.username}</span>)}</div></div><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground neu-button"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger><DropdownMenuContent className="neu-card"><DropdownMenuItem onClick={() => setModalState({ isOpen: true, phaseId: phase.id, task })}><Edit className="w-4 h-4 mr-2" />Editar</DropdownMenuItem><DropdownMenuItem onClick={() => handleDeleteTask(task.id)} className="text-destructive"><Trash2 className="w-4 h-4 mr-2" />Excluir</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>))}</div>)}<Button variant="outline" size="sm" onClick={() => setModalState({ isOpen: true, phaseId: phase.id })} className="ml-7 neu-button"><Plus className="w-4 h-4 mr-2" />Adicionar Tarefa</Button></div>))}
+                    {campaign.phases.map((phase, phaseIndex) => (<div key={phase.id} className="space-y-3"><div className="flex items-center gap-3"><div className="w-4 h-4 rounded-full" style={{ backgroundColor: getPhaseColor(phaseIndex) }}/><h3 className="text-lg font-semibold text-foreground">{phase.name}</h3><Badge variant="outline">{(phase.tasks || []).length} tarefa{phase.tasks?.length !== 1 ? 's' : ''}</Badge></div>{phase.tasks.length === 0 ? <p className="text-muted-foreground italic ml-7">Nenhuma tarefa nesta fase</p> : (<div className="ml-7 space-y-2">{(phase.tasks || []).map(task => (<div key={task.id} className="flex items-center justify-between p-3 neu-card-inset"><div className="flex-grow"><div className="flex items-center gap-3"><h4 className="font-medium text-foreground">{task.name}</h4><Badge variant="outline" className={cn("text-xs", getStatusBadgeConfig(task.status).className)}>{getStatusBadgeConfig(task.status).label}</Badge></div><div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">{task.startDate && task.endDate && isValid(parseISO(String(task.startDate))) && isValid(parseISO(String(task.endDate))) && (<span>{format(parseISO(String(task.startDate)), 'dd/MM/yy')} - {format(parseISO(String(task.endDate)), 'dd/MM/yy')}</span>)}{task.assignee && (<span>Responsável: {task.assignee.username}</span>)}</div></div><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground neu-button"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger><DropdownMenuContent className="neu-card"><DropdownMenuItem onClick={() => setModalState({ isOpen: true, phaseId: phase.id, task })}><Edit className="w-4 h-4 mr-2" />Editar</DropdownMenuItem><DropdownMenuItem onClick={() => handleDeleteTask(task.id)} className="text-destructive"><Trash2 className="w-4 h-4 mr-2" />Excluir</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>))}</div>)}<Button variant="outline" size="sm" onClick={() => setModalState({ isOpen: true, phaseId: phase.id })} className="ml-7 neu-button"><Plus className="w-4 h-4 mr-2" />Adicionar Tarefa</Button></div>))}
                   </div>
                 </CardContent>
               </Card>

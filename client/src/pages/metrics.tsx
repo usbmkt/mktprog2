@@ -1,3 +1,4 @@
+
 // client/src/pages/metrics.tsx
 import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query'; // Import useQueryClient
@@ -20,8 +21,7 @@ import {
   AlertTriangle,
   Loader2
 } from 'lucide-react';
-import { queryClient as appQueryClient } from '@/lib/queryClient'; // Import local queryClient
-
+import { queryClient } from '@/lib/queryClient'; // Import queryClient
 
 // Interfaces para os dados dos gráficos (baseado no retorno do /api/dashboard)
 interface ChartDataset {
@@ -64,7 +64,6 @@ interface DashboardAPIData {
 export default function Metrics() {
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>('all');
-  const queryClient = useQueryClient(); // Hook para invalidar queries
 
   // Query para dados agregados do dashboard (KPIs e gráficos principais)
   const { data: dashboardApiData, isLoading: isLoadingDashboard, error: dashboardError } = useQuery<DashboardAPIData>({
@@ -304,7 +303,7 @@ export default function Metrics() {
                       <div>
                         <p className="text-muted-foreground">Plataformas</p>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {Array.isArray(campaign.platforms) && campaign.platforms.map(p => {
+                          {campaign.platforms?.map(p => {
                             const platformConfig = getPlatformBadge(p);
                             return <Badge key={p} variant="outline" className={`text-xs ${platformConfig.className}`}>{platformConfig.label}</Badge>
                           })}

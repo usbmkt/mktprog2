@@ -1,6 +1,7 @@
+
 /// <reference types="vite/client" />
-import React, { useEffect } from "react"; // Added React import
-import { Switch, Route, useLocation } from "wouter";
+import React, { useEffect, ReactNode } from 'react'; 
+import { Switch, Route, useLocation, Router as WouterRouter } from "wouter"; 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
@@ -28,7 +29,11 @@ import { useAuthStore } from "@/lib/auth";
 import { FloatingMCPAgent } from "@/components/mcp/FloatingMCPAgent";
 import { Loader2 } from "lucide-react";
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+interface ProtectedRouteProps {
+  children: ReactNode; 
+}
+
+function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, isAuthChecked } = useAuthStore();
   const [, navigate] = useLocation();
 
@@ -53,7 +58,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <Layout>{children}</Layout>;
 }
 
-function Router() {
+function AppRouter() { 
   return (
     <Switch>
       <Route path="/login" component={Login} />
@@ -86,7 +91,16 @@ function App() {
 
   if (!googleClientId) {
     console.error("VITE_GOOGLE_CLIENT_ID não está definido no arquivo .env");
-    return <div className="text-red-500 p-4">Erro de configuração: VITE_GOOGLE_CLIENT_ID não encontrado.</div>;
+    // Render a user-friendly error message or a fallback UI
+    return (
+      <div className="flex items-center justify-center h-screen bg-background text-destructive p-4 text-center">
+        <div>
+          <h2 className="text-xl font-semibold mb-2">Erro de Configuração</h2>
+          <p>A aplicação não pôde ser inicializada corretamente. O ID do cliente Google não foi encontrado.</p>
+          <p className="text-sm mt-1">Por favor, verifique as variáveis de ambiente.</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -95,7 +109,9 @@ function App() {
         <QueryClientProvider client={queryClient}>
           <TooltipProvider>
             <Toaster />
-            <Router />
+            <WouterRouter> 
+              <AppRouter />
+            </WouterRouter>
             <FloatingMCPAgent />
           </TooltipProvider>
         </QueryClientProvider>
