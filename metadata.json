@@ -1,0 +1,8 @@
+{
+  "name": "USB MKT PRO",
+  "description": "Marketing automation and campaign management platform.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "prompt": ""
+}
