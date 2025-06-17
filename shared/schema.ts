@@ -1,3 +1,4 @@
+
 // shared/schema.ts
 import { pgTable, text, serial, integer, boolean, timestamp, decimal, jsonb, varchar, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
@@ -15,13 +16,13 @@ export const taskStatusEnum = pgEnum('task_status', ['pending', 'in_progress', '
 // --- Interfaces e Tipos ---
 export interface FlowElementData { nodes: any[]; edges: any[]; }
 export interface BaseGeneratorFormState { product: string; audience: string; objective: 'sales' | 'leads' | 'engagement' | 'awareness'; tone: 'professional' | 'casual' | 'urgent' | 'inspirational' | 'educational' | 'empathetic' | 'divertido' | 'sofisticado';}
-export type LaunchPhase = z.infer<typeof launchPhaseEnum.enumValues[number]>;
+export type LaunchPhase = (typeof launchPhaseEnum.enumValues)[number]; // Corrected type definition
 export interface FieldDefinition { name: string; label: string; type: 'text' | 'textarea' | 'select' | 'number' | 'date'; placeholder?: string; tooltip: string; required?: boolean; options?: Array<{ value: string; label: string }>; defaultValue?: string | number | boolean; dependsOn?: string; showIf?: (formData: Record<string, any>, baseData?: BaseGeneratorFormState) => boolean;}
 export interface CopyPurposeConfig { key: string; label: string; phase: LaunchPhase; fields: FieldDefinition[]; category: string; description?: string; promptEnhancer?: (basePrompt: string, details: Record<string, any>, baseForm: BaseGeneratorFormState) => string;}
 
 export interface LandingPageOptions {
   style?: 'modern' | 'minimal' | 'bold' | 'elegant' | 'tech' | 'startup';
-  colorScheme?: 'dark' | 'light' | 'gradient' | 'neon' | 'earth' | 'ocean'; // Updated
+  colorScheme?: 'dark' | 'light' | 'gradient' | 'neon' | 'earth' | 'ocean';
   industry?: string;
   targetAudience?: string;
   primaryCTA?: string;
@@ -82,7 +83,7 @@ export const insertCopySchema = createInsertSchema(copies, {
   title: z.string().min(1, "Título da copy é obrigatório."),
   content: z.string().min(1, "Conteúdo (mainCopy) é obrigatório."),
   purposeKey: z.string().min(1, "Chave da finalidade (purposeKey) é obrigatória."),
-  launchPhase: z.enum(launchPhaseEnum.enumValues as [string, ...string[]], {
+  launchPhase: z.enum(launchPhaseEnum.enumValues, {
     required_error: "Fase de lançamento é obrigatória.",
     invalid_type_error: "Fase de lançamento inválida.",
   }),
@@ -117,5 +118,91 @@ export const insertWhatsappMessageSchema = createInsertSchema(whatsappMessages, 
 export const insertAlertSchema = createInsertSchema(alerts, { type: z.enum(alerts.type.enumValues as [string, ...string[]]), title: z.string().min(1, "Título do alerta é obrigatório."), message: z.string().min(1, "Mensagem do alerta é obrigatória."), }).omit({ id: true, userId: true, createdAt: true, isRead: true });
 export const insertBudgetSchema = createInsertSchema(budgets, { totalBudget: z.preprocess( (val) => (typeof val === 'string' && val.trim() !== '' ? parseFloat(val) : (typeof val === 'number' ? val : undefined)), z.number({ required_error: "Orçamento total é obrigatório.", invalid_type_error: "Orçamento total deve ser um número." }) ), spentAmount: z.preprocess( (val) => (typeof val === 'string' && val.trim() !== '' ? parseFloat(val) : (typeof val === 'number' ? val : undefined)), z.number({ invalid_type_error: "Valor gasto deve ser um número." }).default(0).optional() ), period: z.enum(budgets.period.enumValues as [string, ...string[]]), startDate: z.preprocess( (arg) => { if (typeof arg === "string" || arg instanceof Date) return new Date(arg); return undefined; }, z.date({ required_error: "Data de início é obrigatória." }) ), endDate: z.preprocess( (arg) => { if (typeof arg === "string" || arg instanceof Date) return new Date(arg); return undefined; }, z.date().optional().nullable() ), campaignId: z.preprocess( (val) => (val === undefined || val === null || val === "" || String(val).toUpperCase() === "NONE" ? null : parseInt(String(val))), z.number().int().positive().nullable().optional() ), }).omit({ id: true, createdAt: true, userId: true });
 export const insertChatSessionSchema = createInsertSchema(chatSessions, { title: z.string().min(1, "Título da sessão é obrigatório.").default('Nova Conversa').optional(), }).omit({ id: true, createdAt: true, updatedAt: true, userId: true });
-export const insertChatMessageSchema = createInsertSchema(chatMessages, { text: z.string().min(1, "O texto da mensagem é obrigatório."), sender: z.enum(chatSenderEnum.enumValues as [string, ...string[]]), sessionId: z.number().int().positive(), attachmentUrl: z.string().url().optional().nullable(), }).omit({id: true, timestamp: true});
-export const insertMetricSchema = createInsertSchema(metrics, { campaignId: z.number().int().positive(), userId: z.number().int().positive(), date: z.preprocess((arg) => { if (typeof arg === "string" || arg instanceof Date) return new Date(arg); return undefined; }, z.date()), impressions: z.number().int().min(0).default(0), clicks: z.number().int().min(0).default(0), conversions: z.number().int().min(0).default(0), cost: z.preprocess( (val) => (typeof val === 'string' && val.trim() !== '' ? parseFloat(val) : (typeof val === 'number' ? val : 0)), z.number().min(0).default(0) ), revenue: z.preprocess( (val) => (typeof val === 'string' && val.trim() !== '' ? parseFloat(val) : (typeof val === 'number' ? val : 0)), z.number().min(
+export const insertChatMessageSchema = createInsertSchema(chatMessages, { text: z.string().min(1, "O texto da mensagem é obrigatório."), sender: z.enum(chatSenderEnum.enumValues), sessionId: z.number().int().positive(), attachmentUrl: z.string().url().optional().nullable(), }).omit({id: true, timestamp: true});
+export const insertMetricSchema = createInsertSchema(metrics, { campaignId: z.number().int().positive(), userId: z.number().int().positive(), date: z.preprocess((arg) => { if (typeof arg === "string" || arg instanceof Date) return new Date(arg); return undefined; }, z.date()), impressions: z.number().int().min(0).default(0), clicks: z.number().int().min(0).default(0), conversions: z.number().int().min(0).default(0), cost: z.preprocess( (val) => (typeof val === 'string' && val.trim() !== '' ? parseFloat(val) : (typeof val === 'number' ? val : 0)), z.number().min(0).default(0) ), revenue: z.preprocess( (val) => (typeof val === 'string' && val.trim() !== '' ? parseFloat(val) : (typeof val === 'number' ? val : 0)), z.number().min(0).default(0) ), leads: z.number().int().min(0).default(0) }).omit({ id: true, createdAt: true });
+export const insertFlowSchema = createInsertSchema(flows, { name: z.string().min(1, "Nome do fluxo é obrigatório."), status: z.enum(flowStatusEnum.enumValues).default('draft'), elements: FlowElementsSchema, campaignId: z.preprocess( (val) => (val === undefined || val === null || val === "" || String(val).toUpperCase() === "NONE" ? null : parseInt(String(val))), z.number().int().positive().nullable().optional() ), }).omit({ id: true, createdAt: true, updatedAt: true, userId: true });
+export const insertIntegrationSchema = createInsertSchema(integrations).omit({ id: true, createdAt: true, updatedAt: true, userId: true });
+export const insertCampaignPhaseSchema = createInsertSchema(campaignPhases).omit({ id: true });
+export const insertCampaignTaskSchema = createInsertSchema(campaignTasks, {
+  startDate: z.preprocess((arg) => { if (typeof arg === 'string' || arg instanceof Date) return new Date(arg); return undefined; }, z.date().optional().nullable()),
+  endDate: z.preprocess((arg) => { if (typeof arg === 'string' || arg instanceof Date) return new Date(arg); return undefined; }, z.date().optional().nullable()),
+}).omit({ id: true });
+
+// --- SCHEMAS ZOD PARA SELEÇÃO (SELECT) ---
+const selectUserSchema = createSelectSchema(users);
+const selectCampaignSchema = createSelectSchema(campaigns);
+const selectCreativeSchema = createSelectSchema(creatives);
+const selectCopySchema = createSelectSchema(copies);
+const selectMetricSchema = createSelectSchema(metrics);
+const selectWhatsappMessageSchema = createSelectSchema(whatsappMessages);
+const selectAlertSchema = createSelectSchema(alerts);
+const selectBudgetSchema = createSelectSchema(budgets);
+const selectLandingPageSchema = createSelectSchema(landingPages);
+const selectChatSessionSchema = createSelectSchema(chatSessions);
+const selectChatMessageSchema = createSelectSchema(chatMessages);
+const selectFunnelSchema = createSelectSchema(funnels);
+const selectFunnelStageSchema = createSelectSchema(funnelStages);
+const selectFlowSchema = createSelectSchema(flows);
+const selectIntegrationSchema = createSelectSchema(integrations);
+const selectCampaignPhaseSchema = createSelectSchema(campaignPhases);
+const selectCampaignTaskSchema = createSelectSchema(campaignTasks);
+
+// --- Tipos Inferidos ---
+export type User = z.infer<typeof selectUserSchema>; export type InsertUser = z.infer<typeof insertUserSchema>;
+export type Campaign = z.infer<typeof selectCampaignSchema>; export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
+export type Creative = z.infer<typeof selectCreativeSchema>; export type InsertCreative = z.infer<typeof insertCreativeSchema>;
+export type Copy = z.infer<typeof selectCopySchema>;  export type InsertCopy = z.infer<typeof insertCopySchema>;
+export type Metric = z.infer<typeof selectMetricSchema>; export type InsertMetric = z.infer<typeof insertMetricSchema>;
+export type WhatsappMessage = z.infer<typeof selectWhatsappMessageSchema>; export type InsertWhatsappMessage = z.infer<typeof insertWhatsappMessageSchema>;
+export type Alert = z.infer<typeof selectAlertSchema>; export type InsertAlert = z.infer<typeof insertAlertSchema>;
+export type Budget = z.infer<typeof selectBudgetSchema>; export type InsertBudget = z.infer<typeof insertBudgetSchema>;
+export type LandingPage = z.infer<typeof selectLandingPageSchema>; export type InsertLandingPage = z.infer<typeof insertLandingPageSchema>;
+export type ChatSession = z.infer<typeof selectChatSessionSchema>; export type InsertChatSession = z.infer<typeof insertChatSessionSchema>;
+export type ChatMessage = z.infer<typeof selectChatMessageSchema>; export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
+export type Funnel = z.infer<typeof selectFunnelSchema>; export type InsertFunnel = z.infer<typeof insertFunnelSchema>;
+export type FunnelStage = z.infer<typeof selectFunnelStageSchema>; export type InsertFunnelStage = z.infer<typeof insertFunnelStageSchema>;
+export type Flow = z.infer<typeof selectFlowSchema>; export type InsertFlow = z.infer<typeof insertFlowSchema>;
+export type Integration = z.infer<typeof selectIntegrationSchema>; export type InsertIntegration = z.infer<typeof insertIntegrationSchema>;
+export type CampaignPhase = z.infer<typeof selectCampaignPhaseSchema>; export type InsertCampaignPhase = z.infer<typeof insertCampaignPhaseSchema>;
+export type CampaignTask = z.infer<typeof selectCampaignTaskSchema>; export type InsertCampaignTask = z.infer<typeof insertCampaignTaskSchema>;
+export type FullCampaignData = Campaign & { phases: (CampaignPhase & { tasks: (CampaignTask & { assignee: Pick<User, 'id' | 'username'> | null; })[]; })[]; };
+
+// --- CONFIGURAÇÕES DE COPY ---
+export const allCopyPurposesConfig: CopyPurposeConfig[] = [
+];
+
+// --- Tipos Relacionados a Copy ---
+export type SpecificPurposeData = Record<string, string | number | boolean>;
+export interface FullGeneratorPayload extends BaseGeneratorFormState {
+  launchPhase: LaunchPhase;
+  copyPurposeKey: string;
+  details: SpecificPurposeData;
+}
+export interface BackendGeneratedCopyItem {
+    mainCopy: string;
+    alternativeVariation1?: string;
+    alternativeVariation2?: string;
+    platformSuggestion?: string;
+    notes?: string;
+}
+export interface DisplayGeneratedCopy extends BackendGeneratedCopyItem {
+    timestamp: Date;
+    purposeKey: string;
+}
+export type SavedCopy = {
+    id: number;
+    title: string;
+    content: string;
+    purposeKey: string;
+    launchPhase: LaunchPhase;
+    details: Record<string, any>;
+    baseInfo: BaseGeneratorFormState;
+    platform?: string | null;
+    isFavorite: boolean;
+    tags: string[];
+    createdAt: string;
+    lastUpdatedAt: string;
+    campaignId?: number | null;
+    userId: number;
+    fullGeneratedResponse: BackendGeneratedCopyItem;
+}

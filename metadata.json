@@ -1,8 +1,6 @@
 {
-  "name": "USB MKT PRO",
-  "description": "Marketing automation and campaign management platform.",
-  "requestFramePermissions": [
-    "microphone"
-  ],
+  "name": "usbmkt",
+  "description": "An empty app",
+  "requestFramePermissions": [],
   "prompt": ""
 }

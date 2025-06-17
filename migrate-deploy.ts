@@ -1,9 +1,16 @@
+
 // ./migrate-deploy.ts
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool, PoolConfig } from 'pg';
 import * as schema from './shared/schema';
 import 'dotenv/config';
+
+// Augment NodeJS.Process interface if needed, or ensure tsconfig 'node' types are included
+declare const process: NodeJS.Process & {
+    exit(code?: number): never;
+};
+
 
 // Função para parsear a URL de conexão, evitando problemas com caracteres especiais
 const parseConnectionString = (url: string) => {

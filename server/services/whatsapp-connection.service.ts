@@ -21,6 +21,10 @@ import { processIncomingMessage } from '../flow-executor';
 
 const makeWASocket = baileys.default;
 
+// Ensure process is available, common for Node.js environments
+declare const process: { cwd(): string; };
+
+
 const SESSIONS_DIR = path.join(process.cwd(), 'server', 'sessions');
 if (!fs.existsSync(SESSIONS_DIR)) {
   fs.mkdirSync(SESSIONS_DIR, { recursive: true });
@@ -123,7 +127,6 @@ export class WhatsappConnectionService {
 
           const contactJid = msg.key.remoteJid!;
           
-          // ✅ CORREÇÃO: Passando o objeto de mensagem completo para o motor de fluxo
           await processIncomingMessage(this.userId, contactJid, msg, this);
         });
 

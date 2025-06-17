@@ -93,10 +93,10 @@ export async function processIncomingMessage(
   try {
     const messageText = message.message?.conversation || message.message?.extendedTextMessage?.text || '';
     let currentState = contactStates.get(contactJid);
-    const activeFlow = await storage.getActiveFlow(userId);
+    const activeFlow = await storage.getActiveFlow(userId); // Assumindo que storage.getActiveFlow existe
 
-    if (!activeFlow || !activeFlow.elements) {
-      logger.warn({ userId, contactJid }, "Nenhum fluxo ativo ou com elementos encontrado.");
+    if (!activeFlow || !activeFlow.elements || !activeFlow.elements.nodes || !activeFlow.elements.edges) {
+      logger.warn({ userId, contactJid }, "Nenhum fluxo ativo ou com elementos válidos encontrado.");
       return;
     }
 

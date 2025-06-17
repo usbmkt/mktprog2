@@ -1,92 +1,94 @@
+
 import 'dotenv/config';
-import express, { Response } from 'express'; // Import Response
+import express, { Express, Request, Response, NextFunction, ErrorRequestHandler } from 'express'; // Use Express types directly
 import { RouterSetup } from './routes';
 import { UPLOADS_PATH } from './config';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { CronService } from './services/cron.service';
+import { setupVite, serveStatic, log } from './vite'; 
+
+// Augment NodeJS.Process interface if needed
+declare const process: NodeJS.Process & {
+    exit(code?: number): never;
+};
 
 // Correção para __dirname em ES Modules
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(__filename); // This will be PROJECT_ROOT/server
 
-const PORT = process.env.PORT || 8000;
+const PORT_NUMBER = process.env.PORT || 8000; // Renamed to avoid conflict
 
 async function bootstrap() {
   try {
-    const app = express();
-    // CORREÇÃO: O caminho correto para os arquivos do cliente é dentro do próprio diretório 'dist'
-    const clientDistPath = path.join(__dirname, 'public');
+    const app: Express = express(); 
+    
+    const clientDistPath = path.join(__dirname, '..', 'dist', 'public'); 
 
     // Middlewares
     app.use(express.json());
-    app.use(express.urlencoded({ extended: true })); // Changed from false to true for complex objects
+    app.use(express.urlencoded({ extended: true }));
     
-    // Middleware de logging (mantido como no seu arquivo)
-    app.use((req, res, next) => {
+    app.use((req: Request, res: Response, next: NextFunction) => {
       const start = Date.now();
-      const reqPath = req.path; // Renomeado para evitar conflito com o módulo 'path'
+      const reqPath = req.path; // Renamed to avoid conflict
       let capturedJsonResponse: any = undefined;
     
       const originalResJson = res.json;
-      res.json = function(this: Response, body?: any) { // Corrigida assinatura e 'this'
-        capturedJsonResponse = body;
-        return originalResJson.call(this, body);
+      res.json = function(this: Response, bodyJson?: any, ...args: any[]): Response { // Explicitly type 'this'
+        capturedJsonResponse = bodyJson;
+        return originalResJson.apply(this, [bodyJson, ...args as []]);
       };
     
       res.on("finish", () => {
         const duration = Date.now() - start;
-        if (reqPath.startsWith("/api")) {
+        if (reqPath.startsWith("/api")) { 
           let logLine = `${req.method} ${reqPath} ${res.statusCode} in ${duration}ms`;
           if (capturedJsonResponse) {
-            // Cuidado com logar objetos grandes
-            const responseBodyString = JSON.stringify(capturedJsonResponse);
-            if (responseBodyString.length > 200) { // Limita o tamanho do log do corpo
-                 logLine += ` :: Response too large to log (Size: ${responseBodyString.length})`;
-            } else {
-                 logLine += ` :: ${responseBodyString}`;
+            try {
+              const jsonResponseString = JSON.stringify(capturedJsonResponse);
+              if (jsonResponseString.length > 200) { // Limit log size
+                 logLine += ` :: ${jsonResponseString.substring(0, 197)}...`;
+              } else {
+                logLine += ` :: ${jsonResponseString}`;
+              }
+            } catch (e) {
+              logLine += ` :: [Unserializable JSON response]`;
             }
           }
-          // Limitar o comprimento total da linha de log
-          if (logLine.length > 300) { 
-            logLine = logLine.slice(0, 297) + "...";
-          }
-          console.log(logLine); // Usando console.log padrão
+          log(logLine, 'API_ACCESS');
         }
       });
       next();
     });
-
-
+    
     // Servir arquivos de upload estaticamente
-    app.use('/uploads', express.static(UPLOADS_PATH));
+    app.use(`/${path.basename(UPLOADS_PATH)}`, express.static(UPLOADS_PATH)); // Use path.basename for consistency
 
     // Registrar rotas da API
-    const server = await RouterSetup.registerRoutes(app);
+    const httpServer = await RouterSetup.registerRoutes(app); 
 
-    // Servir arquivos estáticos da aplicação cliente (Vite build)
-    app.use(express.static(clientDistPath));
+    if (process.env.NODE_ENV === 'development') {
+      log('[SERVER_INDEX] Development mode: Setting up Vite middleware.', 'SERVER_INDEX');
+      await setupVite(app, httpServer); 
+    } else {
+      log('[SERVER_INDEX] Production mode: Serving static files from: ' + clientDistPath, 'SERVER_INDEX');
+      serveStatic(app, clientDistPath); 
+    }
+    
+    // Error handlers are registered within RouterSetup.registerRoutes
 
-    // Rota catch-all para servir o index.html para qualquer outra requisição (SPA behavior)
-    app.get('*', (req, res, next) => { // Adicionado next para consistência, embora possa não ser usado
-      if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/uploads')) {
-        return next(); // Permite que outras rotas (como /uploads) funcionem
-      }
-      res.sendFile(path.join(clientDistPath, 'index.html'));
-    });
-
-    server.listen(PORT, () => {
-      console.log(`🚀 Servidor rodando na porta ${PORT}`);
+    httpServer.listen(PORT_NUMBER, () => { 
+      log(`🚀 Servidor rodando na porta ${PORT_NUMBER} em modo ${process.env.NODE_ENV || 'development'}`, 'SERVER_INDEX');
       
-      // Inicializar tarefas agendadas
       const cronService = new CronService();
       cronService.startTasks();
-      console.log('⏰ Serviço de Cron inicializado.');
+      log('⏰ Serviço de Cron inicializado.', 'SERVER_INDEX');
     });
 
   } catch (error) {
     console.error('❌ Falha ao iniciar o servidor:', error);
-    process.exit(1); // Ensure process.exit is available
+    process.exit(1);
   }
 }
 

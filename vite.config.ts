@@ -1,28 +1,21 @@
+
+
 // vite.config.ts
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { fileURLToPath } from 'node:url';
 
+const __filename_vite_config = fileURLToPath(import.meta.url);
+const __dirname_vite_config = path.dirname(__filename_vite_config); // This is PROJECT_ROOT/server
+
 export default defineConfig(({ command, mode }) => {
   const plugins = [
     react(),
   ];
   
-  if (mode !== "production" && process.env.REPL_ID) {
-    import("@replit/vite-plugin-cartographer")
-      .then(module => {
-        if (module && module.cartographer) {
-          plugins.push(module.cartographer());
-        } else {
-          console.warn("@replit/vite-plugin-cartographer could not be loaded as expected.");
-        }
-      })
-      .catch(e => console.warn("@replit/vite-plugin-cartographer not found or failed to load, skipping.", e));
-  }
-  
-  const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  
+  const projectRoot = path.resolve(__dirname_vite_config, ".."); // Define project root
+
   return {
     plugins: plugins,
     define: {
@@ -31,24 +24,24 @@ export default defineConfig(({ command, mode }) => {
       'import.meta.env.VITE_GOOGLE_CLIENT_ID': JSON.stringify(process.env.VITE_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || ''),
     },
     resolve: {
-      alias: {
-        "@": path.resolve(__dirname, "client", "src"),
-        "@shared": path.resolve(__dirname, "shared"),
-        "@assets": path.resolve(__dirname, "attached_assets"), 
-        "@/types": path.resolve(__dirname, "client", "src", "types"),
-        "@/components/flow": path.resolve(__dirname, "client", "src", "components", "flow"),
-      },
+      alias: [
+        // Corrected alias path relative to vite.config.ts location (server/)
+        { find: '@/', replacement: path.resolve(__dirname_vite_config, '../client/src/') }, 
+        { find: '@shared/', replacement: path.resolve(__dirname_vite_config, '../shared/') },
+        { find: '@assets/', replacement: path.resolve(__dirname_vite_config, '../attached_assets/') },
+      ],
     },
-    root: path.resolve(__dirname, "client"),
+    root: projectRoot, // Set Vite root to project root
     build: {
-      outDir: path.resolve(__dirname, "dist/public"),
+      outDir: path.resolve(projectRoot, "dist/public"), // Ensure outDir is absolute from new project root
       emptyOutDir: true,
-      // Remove the external configuration - let Vite handle bundling
       rollupOptions: {
+        // If your root index.html is now the main entry, ensure it's found.
+        // Vite will typically find 'index.html' in the `root` directory.
+        // input: path.resolve(projectRoot, 'index.html'), // Explicitly set if needed
         output: {
           manualChunks: {
-            // Split large dependencies into separate chunks
-            'grapesjs': ['@grapesjs/studio-sdk'],
+            'grapesjs-sdk': ['@grapesjs/studio-sdk'], 
             'grapesjs-plugins': ['@grapesjs/studio-sdk-plugins'],
           }
         }
@@ -64,7 +57,6 @@ export default defineConfig(({ command, mode }) => {
         '.all-hands.dev', '.prod-runtime.all-hands.dev'
       ],
     },
-    // Help Vite handle the GrapesJS packages
     optimizeDeps: {
       include: [
         '@grapesjs/studio-sdk',

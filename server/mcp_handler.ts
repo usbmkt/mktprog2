@@ -1,18 +1,19 @@
+
 // server/mcp_handler.ts
 import { storage } from "./storage";
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, Part } from "@google/generative-ai";
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold, Part, GenerateContentParameters, SendMessageParameters } from "@google/genai"; // Corrected import
 import { GEMINI_API_KEY, UPLOADS_PATH, UPLOADS_DIR_NAME } from './config';
-import { InsertCampaign, ChatMessage, ChatSession, InsertCampaignTask, Campaign, CampaignPhase } from "../shared/schema";
+import * as schema from "../shared/schema"; // Import all from schema
 import fs from 'fs';
 import path from 'path';
 import mammoth from 'mammoth';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 
-let genAI: GoogleGenerativeAI | null = null;
+let genAI: GoogleGenAI | null = null; // Corrected type
 if (GEMINI_API_KEY) {
 	try {
-		genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+		genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY }); // Corrected initialization
 		console.log("[MCP_HANDLER_GEMINI] SDK do Gemini inicializado com sucesso.");
 	} catch (error) {
 		console.error("[MCP_HANDLER_GEMINI] Falha ao inicializar o SDK do Gemini:", error);
@@ -94,10 +95,10 @@ async function processFile(attachmentUrl: string): Promise<FileProcessResult | n
 	}
 }
 
-async function getCampaignDetailsFromContext(message: string, fileInfo: FileProcessResult | null): Promise<Partial<InsertCampaign> | null> {
+async function getCampaignDetailsFromContext(message: string, fileInfo: FileProcessResult | null): Promise<Partial<schema.DbInsertCampaign> | null> {
     if (!genAI) return null;
 	try {
-		const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+        const model = 'gemini-2.5-flash-preview-04-17'; 
 		let fileContextPrompt = "Nenhum arquivo anexado.";
 		if (fileInfo) {
 			if (fileInfo.type === 'text') {
@@ -119,27 +120,41 @@ async function getCampaignDetailsFromContext(message: string, fileInfo: FileProc
 		`;
 
 		const parts: Part[] = [{ text: promptForDetails }];
-		if (fileInfo?.type === 'image') {
-			parts.push({ inlineData: { mimeType: fileInfo.mimeType!, data: fileInfo.content } });
+		if (fileInfo?.type === 'image' && fileInfo.mimeType) { 
+			parts.push({ inlineData: { mimeType: fileInfo.mimeType, data: fileInfo.content } });
 		}
 		
-		const result = await model.generateContent({ contents: [{ role: 'user', parts }] });
-		const text = result.response.text().trim();
-		const jsonMatch = text.match(/\{.*\}/s);
-		if (jsonMatch) {
-			return JSON.parse(jsonMatch[0]);
-		}
-		return null;
+		const result = await genAI.models.generateContent({ model, contents: [{ role: 'user', parts }] }); 
+		const text = result.text.trim(); 
+		let jsonStr = text;
+        const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
+        const match = jsonStr.match(fenceRegex);
+        if (match && match[2]) {
+          jsonStr = match[2].trim();
+        }
+		try {
+            const parsedData = JSON.parse(jsonStr);
+            // Ensure budget fields are correctly typed if present, or handle in storage layer
+            const campaignDetails: Partial<schema.DbInsertCampaign> = { ...parsedData };
+            if (parsedData.budget) campaignDetails.budget = String(parsedData.budget);
+            if (parsedData.dailyBudget) campaignDetails.dailyBudget = String(parsedData.dailyBudget);
+            if (parsedData.avgTicket) campaignDetails.avgTicket = String(parsedData.avgTicket);
+
+            return campaignDetails;
+        } catch (e) {
+            console.error("[MCP_HANDLER_GEMINI] Erro ao parsear JSON de detalhes da campanha:", e, "String original:", text);
+            return null;
+        }
 	} catch (error) {
 		console.error("[MCP_HANDLER_GEMINI] Erro ao extrair detalhes da campanha:", error);
 		return null;
 	}
 }
 
-async function getTaskDetailsFromContext(message: string, history: ChatMessage[]): Promise<Partial<InsertCampaignTask> & { campaignName?: string, phaseName?: string } | null> {
+async function getTaskDetailsFromContext(message: string, history: schema.ChatMessage[]): Promise<Partial<schema.DbInsertCampaignTask> & { campaignName?: string, phaseName?: string } | null> {
 	if (!genAI) return null;
 	try {
-		const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+        const model = 'gemini-2.5-flash-preview-04-17'; 
 		const historyText = history.map(h => `${h.sender}: ${h.text}`).join('\n');
 		
 		const prompt = `
@@ -157,13 +172,20 @@ async function getTaskDetailsFromContext(message: string, history: ChatMessage[]
 
 			Responda APENAS com um objeto JSON. Se uma informação não for encontrada, deixe o campo como nulo.
 		`;
-		const result = await model.generateContent(prompt);
-		const text = result.response.text().trim();
-		const jsonMatch = text.match(/\{.*\}/s);
-		if (jsonMatch) {
-			return JSON.parse(jsonMatch[0]);
-		}
-		return null;
+		const result = await genAI.models.generateContent({model, contents: prompt}); 
+		const text = result.text.trim(); 
+		let jsonStr = text;
+        const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
+        const match = jsonStr.match(fenceRegex);
+        if (match && match[2]) {
+          jsonStr = match[2].trim();
+        }
+        try {
+             return JSON.parse(jsonStr);
+        } catch (e) {
+            console.error("[MCP_HANDLER_GEMINI] Erro ao parsear JSON de detalhes da tarefa:", e, "String original:", text);
+            return null;
+        }
 	} catch (error) {
 		console.error("[MCP_HANDLER_GEMINI] Erro ao extrair detalhes da tarefa:", error);
 		return null;
@@ -180,7 +202,7 @@ export async function handleMCPConversation(
 
 	const fileInfo = attachmentUrl ? await processFile(attachmentUrl) : null;
 
-	let activeSession: ChatSession;
+	let activeSession: schema.ChatSession;
 	if (currentSessionId) {
 		activeSession = await storage.getChatSession(currentSessionId, userId) ?? await storage.createChatSession(userId, 'Nova Conversa');
 	} else {
@@ -200,7 +222,7 @@ export async function handleMCPConversation(
 	const responsePayload: Partial<MCPResponsePayload> = { sessionId: activeSession.id };
 
 	if (genAI && (message || fileInfo)) {
-		const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+        const geminiModelName = 'gemini-2.5-flash-preview-04-17'; 
 
 		let fileContextForIntent = "";
 		if (fileInfo) {
@@ -219,20 +241,19 @@ export async function handleMCPConversation(
 			Responda com uma das seguintes intenções: NAVEGAR, CRIAR_CAMPANHA, CRIAR_TAREFA, EXPORTAR_RELATORIO, ou CONVERSA_GERAL.
 		`;
 		const intentParts: Part[] = [{ text: intentPrompt }];
-		if (fileInfo?.type === 'image') {
-			intentParts.push({ inlineData: { mimeType: fileInfo.mimeType!, data: fileInfo.content } });
+		if (fileInfo?.type === 'image' && fileInfo.mimeType) { 
+			intentParts.push({ inlineData: { mimeType: fileInfo.mimeType, data: fileInfo.content } });
 		}
 		
-		const intentResult = await model.generateContent({ contents: [{ role: 'user', parts: intentParts }] });
-		const intentResponse = intentResult.response.text().trim();
+		const intentResult = await genAI.models.generateContent({ model: geminiModelName, contents: [{ role: 'user', parts: intentParts }] }); 
+		const intentResponse = intentResult.text.trim(); 
 		console.log(`[MCP_HANDLER] Intenção detectada: ${intentResponse}`);
 
-        // ✅ CORREÇÃO: Lógica aprimorada para NAVEGAÇÃO
         if (intentResponse.includes('NAVEGAR')) {
             const validRoutes = ['/dashboard', '/campaigns', '/schedule', '/creatives', '/budget', '/landingpages', '/funnel', '/copy', '/metrics', '/alerts', '/whatsapp', '/integrations', '/export'];
             const navigationPrompt = `O usuário quer navegar. Qual destas rotas é a mais apropriada para a mensagem "${message}"? Responda APENAS com a rota da lista. Lista de rotas válidas: ${validRoutes.join(", ")}.`;
-            const navResult = await model.generateContent(navigationPrompt);
-            const navPath = navResult.response.text().trim();
+            const navResult = await genAI.models.generateContent({model: geminiModelName, contents: navigationPrompt}); 
+            const navPath = navResult.text.trim(); 
 
             if (validRoutes.includes(navPath)) {
                 agentReplyText = `Claro, abrindo a página de ${navPath.replace('/', '')}...`;
@@ -243,12 +264,24 @@ export async function handleMCPConversation(
             }
         } else if (intentResponse.includes('CRIAR_TAREFA')) {
 			const taskDetails = await getTaskDetailsFromContext(message, history);
-			agentReplyText = await handleCreateTask(userId, taskDetails);
+			agentReplyText = await handleCreateTask(userId, taskDetails); // taskDetails can be null
 			responsePayload.action = "invalidateQuery"; responsePayload.payload = { queryKey: ["campaigns", "tasks", "campaignSchedule"] };
 		} else if (intentResponse.includes('CRIAR_CAMPANHA')) {
 			const campaignDetails = await getCampaignDetailsFromContext(message, fileInfo);
 			if (campaignDetails && campaignDetails.name) {
-				const newCampaignData: InsertCampaign = { userId: userId, name: campaignDetails.name, description: campaignDetails.description || null, status: 'draft', platforms: [], objectives: Array.isArray(campaignDetails.objectives) ? campaignDetails.objectives : [], targetAudience: campaignDetails.targetAudience || null, };
+				const newCampaignData: schema.DbInsertCampaign = { 
+                    userId: userId, 
+                    name: campaignDetails.name, 
+                    description: campaignDetails.description || null, 
+                    status: campaignDetails.status || 'draft', 
+                    platforms: campaignDetails.platforms || [], 
+                    objectives: Array.isArray(campaignDetails.objectives) ? campaignDetails.objectives : [], 
+                    targetAudience: campaignDetails.targetAudience || null,
+                    budget: campaignDetails.budget, // Will be string or undefined
+                    dailyBudget: campaignDetails.dailyBudget, // Will be string or undefined
+                    avgTicket: campaignDetails.avgTicket, // Will be string or undefined
+                    isTemplate: false // Default for new campaigns via MCP
+                };
 				const createdCampaign = await storage.createCampaign(newCampaignData);
 				agentReplyText = `Campanha **"${createdCampaign.name}"** criada com sucesso! Você pode editá-la na página de campanhas.`;
 				responsePayload.action = "navigate"; responsePayload.payload = { path: `/campaigns?id=${createdCampaign.id}` };
@@ -256,20 +289,21 @@ export async function handleMCPConversation(
 				agentReplyText = "Entendi que você quer criar uma campanha, mas não consegui extrair um nome. Poderia me dizer o nome para a campanha?";
 			}
 		} else { // CONVERSA_GERAL
-			const historyForGemini = history.map(msg => ({ role: msg.sender === 'user' ? 'user' : 'model', parts: [{ text: msg.text }] }));
+			const historyForGemini = history.map(msg => ({ role: msg.sender === 'user' ? 'user' : 'model', parts: [{ text: msg.text }] as Part[] })); // Ensure parts is Part[]
 
-			const systemPrompt = "Você é ubie, um assistente de IA conciso e proativo. Use Markdown para formatar suas respostas.";
-			const userParts: Part[] = [{ text: `${systemPrompt}\n${message}` }];
+			const systemInstruction = "Você é ubie, um assistente de IA conciso e proativo. Use Markdown para formatar suas respostas."; 
+			const userParts: Part[] = [{ text: message }]; 
 			
-			if (fileInfo?.type === 'image') {
-				userParts.push({ inlineData: { mimeType: fileInfo.mimeType!, data: fileInfo.content } });
+			if (fileInfo?.type === 'image' && fileInfo.mimeType) {
+				userParts.push({ inlineData: { mimeType: fileInfo.mimeType, data: fileInfo.content } });
 			} else if (fileInfo?.type === 'text' || fileInfo?.type === 'json') {
 				userParts[0].text += `\n\n--- CONTEÚDO DO ANEXO ---\n${fileInfo.content.substring(0, 6000)}`;
 			}
-
-			const chat = model.startChat({ history: historyForGemini });
-			const result = await chat.sendMessage(userParts);
-			agentReplyText = result.response.text();
+            
+            const chat = genAI.chats.create({ model: geminiModelName, config: { systemInstruction }, history: historyForGemini });
+            const chatMessageParams: SendMessageParameters = { message: { role: 'user', parts: userParts } }; 
+            const result = await chat.sendMessage(chatMessageParams); 
+			agentReplyText = result.text;
 		}
 	} else {
 		agentReplyText = `Recebido. ${!genAI ? 'O serviço de IA não está configurado.' : 'Por favor, envie uma mensagem de texto ou anexo válido.'}`;
@@ -286,7 +320,7 @@ export async function handleMCPConversation(
 }
 
 
-async function handleCreateTask(userId: number, taskDetails: Partial<InsertCampaignTask> & { campaignName?: string; phaseName?: string; } | null): Promise<string> {
+async function handleCreateTask(userId: number, taskDetails: Partial<schema.DbInsertCampaignTask> & { campaignName?: string; phaseName?: string; } | null): Promise<string> {
 	if (!taskDetails || !taskDetails.name) {
 		return "Entendi que você quer criar uma tarefa, mas não consegui identificar o nome dela. Poderia repetir, por favor?";
 	}
@@ -295,23 +329,31 @@ async function handleCreateTask(userId: number, taskDetails: Partial<InsertCampa
 		return "Para qual campanha você gostaria de adicionar esta tarefa? Se ela não existir, eu posso criá-la.";
 	}
 
-	let finalCampaign: Campaign;
+	let finalCampaign: schema.Campaign;
 	let messages: string[] = [];
 
 	const foundCampaigns = await storage.searchCampaignsByName(userId, taskDetails.campaignName);
 	if (foundCampaigns.length === 0) {
-		const campaignData: InsertCampaign = { name: taskDetails.campaignName, userId, status: 'draft', platforms: [], objectives: [], targetAudience: null, isTemplate: false };
+		const campaignData: schema.DbInsertCampaign = { 
+            name: taskDetails.campaignName, 
+            userId, 
+            status: 'draft', 
+            platforms: [], 
+            objectives: [], 
+            targetAudience: null, 
+            isTemplate: false 
+        };
 		finalCampaign = await storage.createCampaign(campaignData);
 		messages.push(`Campanha **"${taskDetails.campaignName}"** não encontrada, então criei uma nova para você.`);
 	} else {
 		finalCampaign = foundCampaigns[0];
 	}
 
-	const campaignDetails = await storage.getCampaignWithDetails(finalCampaign.id, userId);
-	let finalPhase: CampaignPhase;
+	const campaignDetailsFull = await storage.getCampaignWithDetails(finalCampaign.id, userId);
+	let finalPhase: schema.CampaignPhase;
 
 	if (taskDetails.phaseName) {
-		const existingPhase = campaignDetails?.phases.find(p => p.name.toLowerCase() === taskDetails.phaseName!.toLowerCase());
+		const existingPhase = campaignDetailsFull?.phases.find(p => p.name.toLowerCase() === taskDetails.phaseName!.toLowerCase());
 		if (existingPhase) {
 			finalPhase = existingPhase;
 		} else {
@@ -319,8 +361,8 @@ async function handleCreateTask(userId: number, taskDetails: Partial<InsertCampa
 			messages.push(`Fase **"${taskDetails.phaseName}"** não encontrada, então adicionei à campanha.`);
 		}
 	} else {
-        if (campaignDetails && campaignDetails.phases.length > 0) {
-            finalPhase = campaignDetails.phases.sort((a,b) => a.order - b.order)[0];
+        if (campaignDetailsFull && campaignDetailsFull.phases.length > 0) {
+            finalPhase = campaignDetailsFull.phases.sort((a,b) => a.order - b.order)[0];
         } else {
             finalPhase = await storage.createPhase(finalCampaign.id, { name: "Planejamento", order: 1 });
             messages.push(`Criei uma fase padrão de **"Planejamento"** para sua tarefa.`);
@@ -328,13 +370,16 @@ async function handleCreateTask(userId: number, taskDetails: Partial<InsertCampa
     }
 
 	try {
-		await storage.createTask({
+		const taskToCreate: schema.DbInsertCampaignTask = {
 			phaseId: finalPhase.id,
 			name: taskDetails.name,
 			description: taskDetails.description || null,
-			status: 'pending',
-			assigneeId: userId
-		});
+			status: taskDetails.status || 'pending',
+			assigneeId: userId, // Default to current user, or make it part of taskDetails
+            startDate: taskDetails.startDate,
+            endDate: taskDetails.endDate,
+		};
+		await storage.createTask(taskToCreate);
 		messages.push(`Tarefa **"${taskDetails.name}"** adicionada com sucesso na fase **"${finalPhase.name}"**.`);
 		return messages.join('\n');
 	} catch (error) {
